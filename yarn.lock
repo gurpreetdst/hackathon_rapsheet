@@ -1766,7 +1766,7 @@
   resolved "https://registry.yarnpkg.com/@react-native/normalize-colors/-/normalize-colors-0.81.1.tgz#bf290526e1bcbb8d14e20b509ca1030d5df71585"
   integrity sha512-TsaeZlE8OYFy3PSWc+1VBmAzI2T3kInzqxmwXoGU4w1d4XFkQFg271Ja9GmDi9cqV3CnBfqoF9VPwRxVlc/l5g==
 
-"@react-native/typescript-config@0.81.1":
+"@react-native/typescript-config@^0.81.1":
   version "0.81.1"
   resolved "https://registry.yarnpkg.com/@react-native/typescript-config/-/typescript-config-0.81.1.tgz#8b478704778e3bc19e494f2e5973db90c4247734"
   integrity sha512-6G8/aCy9HZvzfD6UdgnWFVDDkmL+UfYw1A9BJcB7sBp3J0J2X2BTZ3x2JQnYeI7e/QxiI3RravghS5e9EDxU5Q==

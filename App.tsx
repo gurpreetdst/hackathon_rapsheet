@@ -23,7 +23,6 @@ const exampleSchema: Field[] = [
   { id: 'quantity', label:'Quantity', type:'number' }
 ];
 
-
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
 
