@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import Voice from '@react-native-voice/voice';
 import { Field, FieldUpdate, parseTranscript } from './parser';
-const hardCodeSpeech = "My name is Gurpreet, email gurpreet@example.com, phone +91 98765 43210, I live in Bangalore and I'm 29 years old. Subscribe: yes"
+import { remoteParser } from './remoteParser';
+// const hardCodeSpeech = "My name is Gurpreet Singh dhalla, email gurpreet@example.com, phone +91 98765 43210, I live in Bangalore and I'm 29 years old male born on 4th june 1996. Subscribe: yes"
 // Simple UI primitives for select/radio/checkbox
 function OptionRow({ label, onPress, selected }: { label: string; onPress: () => void; selected: boolean }) {
   return (
@@ -74,15 +75,16 @@ export default function DynamicFormScreen({
       console.warn('stopListening', e);
     } finally {
       setListening(false);
-      handleTranscriptFinal(hardCodeSpeech);
+      handleTranscriptFinal(transcript);
     }
   };
 
   const handleTranscriptFinal = (text: string) => {
     // if (!text) return;
-    const { updates } = parseTranscript(schema, text);
-    console.log('Transcript parsed, updates:', updates);
-    setPreview(updates);
+    remoteParser(schema, text).then(updates => {
+      console.log('Transcript parsed, updates:', updates);
+      setPreview(updates);
+    })
   };
 
   const applyPreview = () => {

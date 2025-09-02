@@ -40,11 +40,6 @@ export type FieldUpdate = {
   evidence?: string;
 };
 
-// Assumes chrono is available (npm package 'chrono-node')
-// Remove / adapt stringSimilarity usage; we use safe token checks instead.
-
-type FieldOption = { id: string; label: string; synonyms?: string[] };
-
 function escRe(s: string) {
   return s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 }
