@@ -13,7 +13,7 @@ import {
   ListRenderItemInfo,
 } from 'react-native';
 import Voice from '@react-native-voice/voice';
-import { Field, FieldUpdate, parseTranscript } from './parser';
+import { Field, FieldUpdate } from './parser';
 import { remoteParser } from './remoteParser';
 // const hardCodeSpeech = "My name is Gurpreet Singh dhalla, email gurpreet@example.com, phone +91 98765 43210, I live in Bangalore and I'm 29 years old male born on 4th june 1996. Subscribe: yes"
 // Simple UI primitives for select/radio/checkbox
@@ -38,20 +38,28 @@ export default function DynamicFormScreen({
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [preview, setPreview] = useState<FieldUpdate[]>([]);
+  const [partialTranscript, setPartialTranscript] = useState(''); // New state for partial results
 
   useEffect(() => {
+    // Only update the final transcript on the 'onSpeechResults' event
     Voice.onSpeechResults = (e: any) => {
       const t = (e.value ?? []).join(' ').trim();
-      setTranscript(t);
+      setTranscript(t); // Set final transcript
+      setPartialTranscript(''); // Clear partial transcript
     };
+
+    // Use onSpeechPartialResults for real-time preview only
     Voice.onSpeechPartialResults = (e: any) => {
-      setTranscript((e.value ?? []).join(' '));
+      setPartialTranscript((e.value ?? []).join(' '));
     };
+
     Voice.onSpeechError = (err: any) => {
       console.warn('Voice error', err);
-      // Alert.alert('Speech error', String(err?.error?.message ?? err));
       setListening(false);
+      setPartialTranscript('');
+      setTranscript(''); // Clear transcript on error
     };
+
     return () => {
       Voice.destroy().catch(() => { });
       Voice.removeAllListeners();
@@ -63,12 +71,13 @@ export default function DynamicFormScreen({
     remoteParser(schema, text).then(updates => {
       console.log('Transcript parsed, updates:', updates);
       setPreview(updates);
-    })
+    });
   }, [schema]);
 
   const startListening = useCallback(async () => {
     try {
       setTranscript('');
+      setPartialTranscript('');
       setPreview([]);
       await Voice.start('en-US');
       setListening(true);
@@ -85,17 +94,16 @@ export default function DynamicFormScreen({
       console.warn('stopListening', e);
     } finally {
       setListening(false);
+      // Pass the final transcript to the parser
       handleTranscriptFinal(transcript);
     }
   }, [transcript, handleTranscriptFinal]);
 
   const applyPreview = useCallback(() => {
     const next = { ...state };
-
     for (const u of preview) {
       next[u.fieldId] = u.value;
     }
-    console.log({ n: { ...next }, p: { ...preview }, s: { ...state } });
     setState(next);
     setPreview([]);
     setTranscript('');
@@ -108,12 +116,12 @@ export default function DynamicFormScreen({
     });
   }, [preview, state, schema]);
 
-  // Renderers per field type
   const renderField = useCallback((item: ListRenderItemInfo<Field>) => {
     const field = item.item;
     const value = state[field.id];
     let fieldComponent: JSX.Element | null = null;
     switch (field.type) {
+      // ... (rest of your switch cases are fine)
       case 'text':
       case 'email':
       case 'phone':
@@ -193,10 +201,11 @@ export default function DynamicFormScreen({
 
   }, [state]);
 
+
   return (
     <View style={{ flex: 1 }}>
       <Text style={{ fontWeight: '700', fontSize: 18, margin: 12 }}>Dynamic Form</Text>
-      <View  style={{flex: 0.5, flexGrow: 1}} >  
+      <View style={{ flex: 0.5, flexGrow: 1 }} >
         <FlatList contentContainerStyle={{ padding: 16 }}
           data={schema}
           keyExtractor={(field) => field.id}
@@ -205,46 +214,46 @@ export default function DynamicFormScreen({
       </View>
       <View style={{ flex: 0.5, borderTopWidth: 1, borderColor: '#eee', backgroundColor: '#fafafa' }}>
         <ScrollView contentContainerStyle={{ padding: 16, marginBottom: 24 }} overScrollMode='never' scrollToOverflowEnabled={false}>
-        <View style={{ marginVertical: 12 }}>
-          <TouchableOpacity
-            style={[styles.micBtn, listening ? styles.micActive : null]}
-            onPress={listening ? stopListening : startListening}
-          >
-            <Text style={{ color: '#fff' }}>{listening ? 'Stop Listening' : '🎤 Autofill with Voice'}</Text>
-          </TouchableOpacity>
-          <Text style={{ marginTop: 6, color: '#444' }}>Transcript: {transcript || '—'}</Text>
-        </View>
-
-        <View style={{ marginVertical: 12 }}>
-          <Text style={{ fontWeight: '700' }}>Preview changes (auto-detected)</Text>
-          {computeDiffLines.length === 0 ? (
-            <Text style={{ color: '#666' }}>No auto-detected changes</Text>
-          ) : (
-            computeDiffLines.map((d) => (
-              <View key={d.fieldId} style={styles.diffRow}>
-                <Text style={{ fontWeight: '600' }}>{d.label}</Text>
-                <Text>Before: {String(d.before ?? '—')}</Text>
-                <Text>After: {String(d.after)}</Text>
-                <Text style={{ color: '#666' }}>Confidence: {(d.confidence * 100).toFixed(0)}%</Text>
-              </View>
-            ))
-          )}
-          <View style={{ flexDirection: 'row', marginTop: 8 }}>
-            <TouchableOpacity onPress={applyPreview} style={[styles.applyBtn, { marginRight: 8 }]} disabled={computeDiffLines.length === 0}>
-              <Text style={{ color: '#fff' }}>Apply</Text>
-            </TouchableOpacity>
+          <View style={{ marginVertical: 12 }}>
             <TouchableOpacity
-              onPress={() => {
-                setPreview([]);
-                setTranscript('');
-              }}
-              style={styles.cancelBtn}
+              style={[styles.micBtn, listening ? styles.micActive : null]}
+              onPress={listening ? stopListening : startListening}
             >
-              <Text>Cancel</Text>
+              <Text style={{ color: '#fff' }}>{listening ? 'Stop Listening' : '🎤 Autofill with Voice'}</Text>
             </TouchableOpacity>
+            <Text style={{ marginTop: 6, color: '#444' }}>Transcript: {transcript || partialTranscript || '—'}</Text>
           </View>
-        </View>
-      </ScrollView>
+
+          <View style={{ marginVertical: 12 }}>
+            <Text style={{ fontWeight: '700' }}>Preview changes (auto-detected)</Text>
+            {computeDiffLines.length === 0 ? (
+              <Text style={{ color: '#666' }}>No auto-detected changes</Text>
+            ) : (
+              computeDiffLines.map((d) => (
+                <View key={d.fieldId} style={styles.diffRow}>
+                  <Text style={{ fontWeight: '600' }}>{d.label}</Text>
+                  <Text>Before: {String(d.before ?? '—')}</Text>
+                  <Text>After: {String(d.after)}</Text>
+                  <Text style={{ color: '#666' }}>Confidence: {(d.confidence * 100).toFixed(0)}%</Text>
+                </View>
+              ))
+            )}
+            <View style={{ flexDirection: 'row', marginTop: 8 }}>
+              <TouchableOpacity onPress={applyPreview} style={[styles.applyBtn, { marginRight: 8 }]} disabled={computeDiffLines.length === 0}>
+                <Text style={{ color: '#fff' }}>Apply</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setPreview([]);
+                  setTranscript('');
+                }}
+                style={styles.cancelBtn}
+              >
+                <Text>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
       </View>
     </View>
   );
