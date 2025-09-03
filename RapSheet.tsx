@@ -1,4 +1,3 @@
-// DynamicFormScreen.tsx
 import { JSX, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
@@ -15,7 +14,9 @@ import {
 import Voice from '@react-native-voice/voice';
 import { Field, FieldUpdate } from './parser';
 import { remoteParser } from './remoteParser';
-// const hardCodeSpeech = "My name is Gurpreet Singh dhalla, email gurpreet@example.com, phone +91 98765 43210, I live in Bangalore and I'm 29 years old male born on 4th june 1996. Subscribe: yes"
+// Import the new ListeningOverlay component
+import ListeningOverlay from './ListeningOverlay'; // Ensure the path is correct
+
 // Simple UI primitives for select/radio/checkbox
 function OptionRow({ label, onPress, selected }: { label: string; onPress: () => void; selected: boolean }) {
   return (
@@ -38,17 +39,15 @@ export default function DynamicFormScreen({
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [preview, setPreview] = useState<FieldUpdate[]>([]);
-  const [partialTranscript, setPartialTranscript] = useState(''); // New state for partial results
+  const [partialTranscript, setPartialTranscript] = useState('');
 
   useEffect(() => {
-    // Only update the final transcript on the 'onSpeechResults' event
     Voice.onSpeechResults = (e: any) => {
       const t = (e.value ?? []).join(' ').trim();
-      setTranscript(t); // Set final transcript
-      setPartialTranscript(''); // Clear partial transcript
+      setTranscript(t);
+      setPartialTranscript('');
     };
 
-    // Use onSpeechPartialResults for real-time preview only
     Voice.onSpeechPartialResults = (e: any) => {
       setPartialTranscript((e.value ?? []).join(' '));
     };
@@ -57,8 +56,12 @@ export default function DynamicFormScreen({
       console.warn('Voice error', err);
       setListening(false);
       setPartialTranscript('');
-      setTranscript(''); // Clear transcript on error
+      setTranscript('');
     };
+
+    // The onSpeechStart and onSpeechEnd events are handled by the Voice module
+    Voice.onSpeechStart = () => setListening(true);
+    Voice.onSpeechEnd = () => setListening(false);
 
     return () => {
       Voice.destroy().catch(() => { });
@@ -80,7 +83,6 @@ export default function DynamicFormScreen({
       setPartialTranscript('');
       setPreview([]);
       await Voice.start('en-US');
-      setListening(true);
     } catch (e) {
       console.warn('startListening', e);
       Alert.alert('Microphone error', 'Could not start speech recognition');
@@ -93,8 +95,6 @@ export default function DynamicFormScreen({
     } catch (e) {
       console.warn('stopListening', e);
     } finally {
-      setListening(false);
-      // Pass the final transcript to the parser
       handleTranscriptFinal(transcript);
     }
   }, [transcript, handleTranscriptFinal]);
@@ -121,7 +121,6 @@ export default function DynamicFormScreen({
     const value = state[field.id];
     let fieldComponent: JSX.Element | null = null;
     switch (field.type) {
-      // ... (rest of your switch cases are fine)
       case 'text':
       case 'email':
       case 'phone':
@@ -198,7 +197,6 @@ export default function DynamicFormScreen({
         {fieldComponent}
       </View>
     );
-
   }, [state]);
 
 
@@ -217,9 +215,10 @@ export default function DynamicFormScreen({
           <View style={{ marginVertical: 12 }}>
             <TouchableOpacity
               style={[styles.micBtn, listening ? styles.micActive : null]}
-              onPress={listening ? stopListening : startListening}
+              onPress={startListening}
+              disabled={listening} // Disable button while listening to avoid starting multiple times
             >
-              <Text style={{ color: '#fff' }}>{listening ? 'Stop Listening' : '🎤 Autofill with Voice'}</Text>
+              <Text style={{ color: '#fff' }}>{listening ? 'Listening...' : '🎤 Autofill with Voice'}</Text>
             </TouchableOpacity>
             <Text style={{ marginTop: 6, color: '#444' }}>Transcript: {transcript || partialTranscript || '—'}</Text>
           </View>
@@ -255,6 +254,10 @@ export default function DynamicFormScreen({
           </View>
         </ScrollView>
       </View>
+
+      {/* **INTEGRATION OF THE OVERLAY** */}
+      <ListeningOverlay isListening={listening} onStopListening={stopListening} />
+
     </View>
   );
 }
