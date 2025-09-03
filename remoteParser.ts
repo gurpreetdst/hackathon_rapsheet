@@ -1,9 +1,95 @@
-import { FieldUpdate } from "./parser";
+import { Field, FieldUpdate } from "./parser";
 
-const GEMINI_API_KEY = "AIzaSyCJDQTtJ-glf8PZAMxivLiGB70xK-psuds"
-const callGeminiApi = async (fieldsArray, paragraphString) => {
-  const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
-  
+const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const GEMINI_API_KEY = "AIzaSyAHMKFvxM8M5fRugNfhoBf-k7GFoXsQXdg";
+const OPEN_API_KEY = "put_your_key_here"
+
+async function getResponseFromOpenAI(input: string) {
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + OPEN_API_KEY,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      input: input,
+      store: false
+    })
+  });
+
+  const data = await response.json();
+  console.log(data)
+  const generatedText = data?.output[0].content[0].text || "[]";
+  console.log(generatedText)
+  return generatedText;
+}
+
+export async function getResponseFromGemini(input: string) {
+  const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-goog-api-key': GEMINI_API_KEY,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: input }],
+          },
+        ],
+      }),
+    });
+  const data = await response.json();
+    console.log("AI Response:", data);
+    // Gemini response is text, we need to parse JSON inside it
+  const generatedText =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+
+  return generatedText;
+}
+
+export async function generateFormFromAI(formType: string): Promise<Field[]> {
+  const promptTemplate = `
+    Generate a JSON array of form fields for a "${formType}" form.
+    Use this TypeScript schema:
+
+    type Field = {
+      id: string;
+      label: string;
+      type: 'text' | 'number' | 'date' | 'time' | 'datetime' | 'radio' | 'select' | 'email' | 'switch';
+      options?: { id: string; label: string }[];
+      required?: boolean;
+      pattern?: string;
+      min?: number;
+      max?: number;
+      synonyms?: string[];
+    };
+
+    Rules:
+    - IDs should be unique and lowercase with underscores
+    - Labels should be user-friendly
+    - Add realistic options for select/radio fields
+    - Add sensible min/max for numbers (like phone, age, quantity)
+    - Respond with ONLY valid JSON, no explanation
+  `;
+  try {
+    const generatedText = await getResponseFromOpenAI(promptTemplate)
+    console.log(generatedText)
+    // The model will output a clean JSON array
+    const jsonString = generatedText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+    console.log(jsonString)
+    return JSON.parse(jsonString) as Field[];
+  } catch (err) {
+    console.error("Failed to parse AI response:", err);
+    return [];
+  }
+}
+
+
+const callGeminiApi = async (fieldsArray: Field[], paragraphString: String) => {
+
   const promptTemplate = `
 You are a data parsing and mapping bot. Your task is to extract information from a given paragraph and map it to a provided array of fields.
 
@@ -65,33 +151,12 @@ ${paragraphString}
 **Expected Output:**
 Output a single JSON array of \`FieldUpdate\` objects. Do not include any other text or explanation.
 `;
-
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-goog-api-key': GEMINI_API_KEY,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: promptTemplate }],
-          },
-        ],
-      }),
-    });
+    const generatedText = await getResponseFromOpenAI(promptTemplate)
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const responseData = await response.json();
-    const generatedText = responseData.candidates[0].content.parts[0].text;
-    
     // The model will output a clean JSON array
     const jsonString = generatedText.replace(/```json/g, '').replace(/```/g, '').trim();
-    
+
     return JSON.parse(jsonString);
 
   } catch (error) {
@@ -100,17 +165,7 @@ Output a single JSON array of \`FieldUpdate\` objects. Do not include any other 
   }
 };
 
-// Example Usage
-const sampleFields = [
-  { id: 'name', label: 'Name', type: 'text' },
-  { id: 'dob', label: 'Date of Birth', type: 'date', synonyms: ['birthday'] },
-  { id: 'email', label: 'Email', type: 'email' },
-  { id: 'phone', label: 'Phone Number', type: 'phone', synonyms: ['contact'] },
-];
-
-const sampleParagraph = "My name is Jane Smith, I was born on 12/05/1990. My email is jane.smith@example.com and you can reach me at 555-123-4567.";
-
-export const remoteParser = async (schema, userInput): Promise<FieldUpdate[]>  => {
+export const remoteParser = async (schema: Array<Field>, userInput: String): Promise<FieldUpdate[]> => {
   const result = await callGeminiApi(schema, userInput);
   if (result) {
     console.log("Mapped Data:", result);
@@ -125,4 +180,5 @@ export const remoteParser = async (schema, userInput): Promise<FieldUpdate[]>  =
       ]
     */
   }
+  return [];
 };

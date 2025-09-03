@@ -18,4 +18,16 @@ buildscript {
     }
 }
 
+subprojects { subproject ->
+    afterEvaluate {
+        if (subproject.name.contains("voice")) {
+            def generateTask = subproject.tasks.findByName("generateDebugResValues")
+            def packageTask = subproject.tasks.findByName("packageDebugResources")
+            if (generateTask != null && packageTask != null) {
+                packageTask.dependsOn generateTask
+            }
+        }
+    }
+}
+
 apply plugin: "com.facebook.react.rootproject"

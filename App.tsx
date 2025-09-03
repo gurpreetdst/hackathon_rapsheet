@@ -5,13 +5,15 @@
  * @format
  */
 
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import { StatusBar, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import RapSheet from './RapSheet';
 import { Field } from './parser';
+import { Suspense, use, useEffect, useMemo, useState } from 'react';
+import { generateFormFromAI } from './remoteParser';
 
 const exampleSchema: Field[] = [
   { id: 'name', label: 'Full Name', type: 'text' },
@@ -25,7 +27,6 @@ const exampleSchema: Field[] = [
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
-
   return (
     <SafeAreaProvider>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
@@ -36,12 +37,27 @@ function App() {
 
 function AppContent() {
   const safeAreaInsets = useSafeAreaInsets();
+  const [form, setForm] = useState<Field[]>([]);
+  const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    setLoading(true);
+    generateFormFromAI("job application").then((fields) => {
+      setForm(fields);
+      setLoading(false);
+    });
+  }, []);
   return (
     <View style={[styles.container, { paddingTop: safeAreaInsets.top }]}>
-      <RapSheet schema={exampleSchema} />
+      {
+        loading && form.length <= 0 ? <Text style={{padding:16}}>Loading form...</Text> : <RapSheet schema={form} />
+      }
     </View>
   );
+}
+function useAIForm(formType: string) {
+  const resource = useMemo(() => generateFormFromAI(formType), [formType]);
+  return use(resource);
 }
 
 const styles = StyleSheet.create({
