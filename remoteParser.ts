@@ -1,9 +1,31 @@
+import axios from 'axios';
 import { Field, FieldUpdate } from './parser';
 
-const API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-const GEMINI_API_KEY = 'AIzaSyAHMKFvxM8M5fRugNfhoBf-k7GFoXsQXdg';
-const OPEN_API_KEY = 'key';
+const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const GEMINI_API_KEY = "AIzaSyAHMKFvxM8M5fRugNfhoBf-k7GFoXsQXdg";
+const OPEN_API_KEY = ""
+
+async function getResponseFromLocalhost(prompt: string) {
+  try {
+    // Make a request to Ollama server (assuming Ollama supports REST API)
+    const ollamaResponse = await axios.post('http://localhost:11435/api/chat', {
+      "model": "llama3.1",
+      "messages": [
+        {
+          "role": "user",
+          "content": prompt
+        }
+      ],
+      "stream": false
+    });
+
+    // Send Ollama response back to client
+    return ollamaResponse.data.message.content;
+  } catch (error) {
+    console.error('Error communicating with Ollama:', error);
+    return []
+  }
+}
 
 async function getResponseFromOpenAI(input: string) {
   const response = await fetch('https://api.openai.com/v1/responses', {
@@ -81,7 +103,7 @@ export async function generateFormFromAI(formType: string): Promise<Field[]> {
   `;
 
   try {
-    const generatedText = await getResponseFromGemini(promptTemplate);
+    const generatedText = await getResponseFromLocalhost(promptTemplate);
     console.log(generatedText);
     // The model will output a clean JSON array
     const jsonString = generatedText
@@ -163,7 +185,7 @@ ${paragraphString}
 Output a single JSON array of \`FieldUpdate\` objects. Do not include any other text or explanation.
 `;
   try {
-    const generatedText = await getResponseFromGemini(promptTemplate);
+    const generatedText = await getResponseFromLocalhost(promptTemplate);
 
     // The model will output a clean JSON array
     const jsonString = generatedText
