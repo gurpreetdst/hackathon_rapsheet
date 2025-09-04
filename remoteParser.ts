@@ -3,7 +3,7 @@ import { Field, FieldUpdate } from './parser';
 
 const API_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-const GEMINI_API_KEY = 'AIzaSyAHMKFvxM8M5fRugNfhoBf-k7GFoXsQXdg';
+const GEMINI_API_KEY = 'AIzaSyDSODlSNKIJVDAjPRibPDvo4vUSClGTUQM';
 const OPEN_API_KEY = '';
 
 async function getResponseFromLocalhost(prompt: string) {
@@ -75,6 +75,7 @@ export async function getResponseFromGemini(input: string) {
 }
 
 export async function generateFormFromAI(formType: string): Promise<Field[]> {
+  return [];
   const promptTemplate = `
     Generate a JSON array of form fields for a "${formType}" form.
     Use this TypeScript schema:
@@ -105,7 +106,7 @@ export async function generateFormFromAI(formType: string): Promise<Field[]> {
   `;
 
   try {
-    const generatedText = await getResponseFromLocalhost(promptTemplate);
+    const generatedText = await getResponseFromGemini(promptTemplate);
     console.log(generatedText);
     // The model will output a clean JSON array
     const jsonString = generatedText
@@ -185,6 +186,7 @@ ${paragraphString}
 
 **Expected Output Instructions:**
 Your job is to parse only the provided paragraph and extract information that matches the given fields.
+- Add a talkback text as well at end of the array as an object which I can give to text to speech engine to read out the values back to user, mapped to fieldId 'talkback_text'
 - For each piece of information you can clearly identify, return a 'FieldUpdate' object.  
 - If you cannot find a value for a field, do **not include that field** in the output.  
 - Do not include 'null', empty strings, zero confidence, or placeholder values.  
@@ -195,11 +197,20 @@ Your job is to parse only the provided paragraph and extract information that ma
 - Do not output any fields other than those found in the text.  
 - Your output must be a valid JSON array of 'FieldUpdate' objects.  
 - Return only the JSON, with no extra text, comments, or explanation.  
+- Output a single JSON array of \`FieldUpdate\` objects. Do not include any other text or explanation.
+- Skip fields for which you cannot find any relevant information in the paragraph.
+- You must output a valid JSON array of FieldUpdate objects.
+- Avoid adding comments in the JSON output.
+- Don't add comments in the response in the JSON output.
+- Don't duplicate fieldIds; each fieldId should appear only once in the output. You can use the one that appears last in the user input.
+- For fields of type "select", "radio", or "checkbox", response for the value should be one of the option's id.
+- Do not include any text before or after the JSON.
+- Do not add explanations.
 `;
 
   try {
     console.log(promptTemplate);
-    const generatedText = await getResponseFromLocalhost(promptTemplate);
+    const generatedText = await getResponseFromGemini(promptTemplate);
 
     console.log('Generated Text:', generatedText);
 

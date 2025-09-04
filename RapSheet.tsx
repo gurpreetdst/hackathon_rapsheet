@@ -13,6 +13,7 @@ import {
   ListRenderItemInfo, ActivityIndicator
 } from 'react-native';
 import Voice from '@react-native-voice/voice';
+import Tts from 'react-native-tts';
 import { Field, FieldUpdate } from './parser';
 import { remoteParser } from './remoteParser';
 import { coerceValue, validateField } from './utils';
@@ -43,7 +44,6 @@ export default function DynamicFormScreen({
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [appliedTranscript, setAppliedTranscript] = useState('');
   const [loading, setLoading] = useState(false);
-
 
   // Use a ref to store a stable reference to the schema and remoteParser function
   const schemaRef = useRef(schema);
@@ -96,6 +96,7 @@ export default function DynamicFormScreen({
 
   const stopListening = useCallback(async () => {
     try {
+      setLoading(true); // show loader
       await Voice.stop();
     } catch (e) { console.warn(e); }
     setListening(false);
@@ -103,73 +104,101 @@ export default function DynamicFormScreen({
     const finalTranscript = transcript || partialTranscript;
     if (!finalTranscript) return;
 
-    setLoading(true); // show loader while parsing
-    remoteParserRef.current(schemaRef.current, finalTranscript)
-      .then(updates => {
-        setPreview(updates);
-        setAppliedTranscript(finalTranscript);
-      })
-      .catch(err => {
-        console.warn('Parser error', err);
-        Alert.alert('Parsing Error', 'Could not process your speech. Try again.');
-      })
-      .finally(() => {
-        setLoading(false); // hide loader
+    remoteParserRef.current(schemaRef.current, finalTranscript).then(updates => {
+      if (!updates || updates.length === 0) return;
+
+      // --- Apply updates to state ---
+      setState((prev) => {
+        const next = { ...prev };
+        for (const u of updates) {
+          const field = schemaRef.current.find((f) => f.id === u.fieldId);
+          if (field) {
+            next[u.fieldId] = coerceValue(field, u.value);
+          }
+        }
+        return next;
       });
+
+      // --- Validate ---
+      const newErrors: Record<string, string | null> = {};
+      let talkBackSpeech = ""
+      for (const u of updates) {
+        const field = schemaRef.current.find((f) => f.id === u.fieldId);
+        if (u?.fieldId === 'talkback_text') {
+          talkBackSpeech = u.value;
+        }
+        if (field) {
+          newErrors[u.fieldId] = validateField(field, u.value);
+        }
+      }
+      setErrors((prev) => ({ ...(prev ?? {}), ...newErrors }));
+
+      // --- Speak back to user ---
+      
+      Tts.speak(talkBackSpeech);
+
+      // // --- If form is valid, ask for submission ---
+      // if (isFormValid()) {
+      //   Tts.speak("All fields look good. Do you want me to submit the form?");
+      //   // After speaking, start listening for yes/no
+      //   setTimeout(() => {
+      //     startListeningForSubmit();
+      //   }, 3000); // wait a bit so TTS finishes
+      // }
+
+      // --- Cleanup ---
+      setPreview([]);
+      setAppliedTranscript('');
+      setTranscript('');
+    }).catch(err => {
+      console.warn('Parser error', err);
+      Alert.alert('Parsing Error', 'Could not process your speech. Try again.');
+    }).finally(() => {
+      setLoading(false); // hide loader
+    });
 
     setPartialTranscript('');
     setTranscript('');
   }, [transcript, partialTranscript]);
 
+  const isFormValid = useCallback(() => {
+    return Object.values(errors).every((err) => !err);
+  }, [errors]);
 
-  const applyPreview = useCallback(() => {
-    if (!preview || preview.length === 0) {
-      return;
-    }
+  const isPositiveResponse = (text: string) => {
+    const normalized = text.toLowerCase();
+    return ['yes', 'yeah', 'submit', 'sure', 'okay', 'go ahead'].some(p => normalized.includes(p));
+  };
 
-    // 1. Apply all preview values to state
-    setState((prev) => {
-      const next = { ...prev };
-      for (const u of preview) {
-        const field = schema.find((f) => f.id === u.fieldId);
-        if (field) {
-          next[u.fieldId] = coerceValue(field, u.value);
+  const isNegativeResponse = (text: string) => {
+    const normalized = text.toLowerCase();
+    return ['no', 'not now', 'cancel', 'later'].some(p => normalized.includes(p));
+  };
+
+  const startListeningForSubmit = useCallback(async () => {
+    try {
+      await Voice.start('en-US');
+      setListening(true);
+
+      Voice.onSpeechResults = (e: any) => {
+        const answer = (e.value ?? []).join(' ').toLowerCase();
+        if (isPositiveResponse(answer)) {
+          Tts.speak("Submitting the form now.");
+          setListening(false);
+          onSubmit?.(state);
+        } else if (isNegativeResponse(answer)) {
+          Tts.speak("Okay, not submitting.");
+          setListening(false);
+        } else {
+          Tts.speak("I did not understand. Please say yes or no.");
+          startListeningForSubmit(); // retry
         }
-      }
-      return next;
-    });
-
-    // 2. Validate applied values → update errors
-    const newErrors: Record<string, string | null> = {};
-    for (const u of preview) {
-      const field = schema.find((f) => f.id === u.fieldId);
-      if (field) {
-        newErrors[u.fieldId] = validateField(field, u.value);
-      }
-    }
-    setErrors((prev) => ({ ...(prev ?? {}), ...newErrors }));
-
-    // 3. Clear preview and store applied transcript
-    setPreview([]);
-    setAppliedTranscript(''); // preserve applied text
-    setTranscript(''); // clear live speech transcript for next session
-  }, [preview, schema]);
-
-  const computeDiffLines = useMemo(() => {
-    return preview.map((u) => {
-      const field = schema.find((s) => s.id === u.fieldId);
-      const before = state[u.fieldId];
-      const isInvalid = field ? !!validateField(field, u.value) : false;
-
-      return {
-        fieldId: u.fieldId,
-        label: field?.label ?? u.fieldId,
-        before,
-        after: u.value,
-        confidence: isInvalid ? 0 : u.confidence, // 0% confidence for invalid values
       };
-    });
-  }, [preview, state, schema]);
+    } catch (err) {
+      console.warn("Error listening for submit", err);
+    }
+  }, [state, onSubmit]);
+
 
   const renderField = useCallback((item: ListRenderItemInfo<Field>) => {
     const field = item.item;
@@ -299,51 +328,12 @@ export default function DynamicFormScreen({
               Transcript: {listening ? (partialTranscript || '—') : (appliedTranscript || '—')}
             </Text>
           </View>
-
           <View style={styles.previewContainer}>
-            {loading ? (
+            {loading && (
               <View style={{ alignItems: 'center', padding: 20 }}>
                 <ActivityIndicator size="large" color="#1E88E5" />
                 <Text style={{ marginTop: 10, color: '#555' }}>Analyzing speech...</Text>
               </View>
-            ) : (
-              <>
-                <Text style={styles.previewTitle}>Preview Changes</Text>
-                {computeDiffLines.length > 0 ? computeDiffLines.map((d) => (
-                  <View key={d.fieldId} style={styles.diffRow}>
-                    <Text style={styles.diffLabel}>{d.label}</Text>
-                    <Text style={styles.diffValue}>Before: {String(d.before ?? '—')}</Text>
-                    <Text style={styles.diffValue}>After: {String(d.after)}</Text>
-                    <Text style={styles.diffConfidence}>
-                      Confidence: {(d.confidence * 100).toFixed(0)}%
-                    </Text>
-                  </View>
-                )) : <Text style={styles.noPreviewText}>No changes detected.</Text>}
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity
-                    onPress={applyPreview}
-                    style={[
-                      styles.applyBtn,
-                      computeDiffLines.length === 0 && styles.applyBtnDisabled,
-                      { marginRight: 8 }
-                    ]}
-                    disabled={computeDiffLines.length === 0}
-                  >
-                    <Text style={computeDiffLines.length === 0 ? styles.applyBtnTextDisabled : styles.applyBtnText}>
-                      Apply
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => {
-                      setPreview([]);
-                    }}
-                    style={styles.cancelBtn}
-                  >
-                    <Text style={styles.cancelBtnText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
             )}
           </View>
         </ScrollView>

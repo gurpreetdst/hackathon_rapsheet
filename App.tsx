@@ -16,13 +16,19 @@ import { use, useEffect, useMemo, useState } from 'react';
 import { generateFormFromAI } from './remoteParser';
 
 const exampleSchema: Field[] = [
-  { id: 'name', label: 'Full Name', type: 'text' },
-  { id: 'dob', label: 'Date of Birth', type: 'date' },
-  { id: 'gender', label: 'Gender', type: 'radio', options: [{ id: 'male', label: 'Male' }, { id: 'female', label: 'Female' }] },
-  { id: 'city', label: 'City', type: 'select', options: [{ id: 'delhi', label: 'Delhi' }, { id: 'bang', label: 'Bangalore' }, { id: 'mum', label: 'Mumbai' }] },
-  { id: 'email', label: 'Email Address', type: 'email' },
-  { id: 'notify', label: 'Notify by email', type: 'switch' },
-  { id: 'quantity', label: 'Quantity', type: 'number' }
+  // { id: 'name', label: 'Full Name', type: 'text' },
+  // { id: 'dob', label: 'Date of Birth', type: 'date' },
+  // { id: 'gender', label: 'Gender', type: 'radio', options: [{ id: 'male', label: 'Male' }, { id: 'female', label: 'Female' }] },
+  // { id: 'city', label: 'City', type: 'select', options: [{ id: 'delhi', label: 'Delhi' }, { id: 'bang', label: 'Bangalore' }, { id: 'mum', label: 'Mumbai' }] },
+  // { id: 'email', label: 'Email Address', type: 'email' },
+  // { id: 'notify', label: 'Notify by email', type: 'switch' },
+  // { id: 'quantity', label: 'Quantity', type: 'number' }
+  { id: 'inspection_date', label: 'Inspection Date', type: 'date' },
+  { id: 'inspection_note', label: 'Inspection Note', type: 'text' },
+  { id: 'inspection_outcome', label: 'Inspection Outcome', type: 'text' },
+  { id: 'contacted_supervisor', label: 'Were you able to contact site supervisor', type: 'switch' },
+  { id: 'work_hours', label: 'Estimated working hours', type: 'number' },
+  { id: 'checked_in_to_site', label: 'Checked-in on the site', type: 'switch' },
 ];
 
 function App() {
@@ -37,15 +43,15 @@ function App() {
 
 function AppContent() {
   const safeAreaInsets = useSafeAreaInsets();
-  const [form, setForm] = useState<Field[]>([]);
+  const [form, setForm] = useState<Field[]>(exampleSchema);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
-    generateFormFromAI("job application").then((fields) => {
-      setForm(fields);
-      setLoading(false);
-    });
+    // setLoading(true);
+    // generateFormFromAI("job application").then((fields) => {
+    //   setForm(fields);
+    //   setLoading(false);
+    // });
   }, []);
   return (
     <View style={[styles.container, { paddingTop: safeAreaInsets.top }]}>
