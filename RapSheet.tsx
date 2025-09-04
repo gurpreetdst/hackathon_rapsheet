@@ -140,9 +140,9 @@ export default function DynamicFormScreen({
 
     // 3. Clear preview and store applied transcript
     setPreview([]);
-    setAppliedTranscript(transcript || appliedTranscript); // preserve applied text
+    setAppliedTranscript(''); // preserve applied text
     setTranscript(''); // clear live speech transcript for next session
-  }, [preview, schema, transcript, appliedTranscript]);
+  }, [preview, schema]);
 
   const computeDiffLines = useMemo(() => {
     return preview.map((u) => {
