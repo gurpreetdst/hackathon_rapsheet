@@ -10,15 +10,17 @@ import {
   Switch,
   Alert,
   ScrollView,
-  ListRenderItemInfo, ActivityIndicator
+  ListRenderItemInfo, Dimensions
 } from 'react-native';
 import Voice from '@react-native-voice/voice';
 import Tts from 'react-native-tts';
-import { Field, FieldUpdate } from './parser';
+import { Field } from './parser';
 import { remoteParser } from './remoteParser';
 import { coerceValue, validateField } from './utils';
-// const hardCodeSpeech = "My name is Gurpreet Singh dhalla, email gurpreet@example.com, phone +91 98765 43210, I live in Bangalore and I'm 29 years old male born on 4th june 1996. Subscribe: yes"
-// Simple UI primitives for select/radio/checkbox
+import FabButton from './FabButton';
+
+const { height: screenHeight } = Dimensions.get('window');
+
 function OptionRow({ label, onPress, selected }: { label: string; onPress: () => void; selected: boolean }) {
   return (
     <TouchableOpacity onPress={onPress} style={[styles.optionRow, selected && styles.optionRowSelected]}>
@@ -39,13 +41,11 @@ export default function DynamicFormScreen({
   const [state, setState] = useState<Record<string, any>>(initial);
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [preview, setPreview] = useState<FieldUpdate[]>([]);
   const [partialTranscript, setPartialTranscript] = useState('');
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [appliedTranscript, setAppliedTranscript] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Use a ref to store a stable reference to the schema and remoteParser function
   const schemaRef = useRef(schema);
   const remoteParserRef = useRef(remoteParser);
 
@@ -59,7 +59,6 @@ export default function DynamicFormScreen({
       setPartialTranscript('');
     };
 
-    // Partial results just update partialTranscript
     const handleSpeechPartialResults = (e: any) => {
       setPartialTranscript((e.value ?? []).join(' '));
     };
@@ -68,7 +67,7 @@ export default function DynamicFormScreen({
       console.warn('Voice error', err);
       setListening(false);
       setPartialTranscript('');
-      setTranscript(''); // Clear transcript on error
+      setTranscript('');
     };
 
     Voice.onSpeechResults = handleSpeechResults;
@@ -85,7 +84,6 @@ export default function DynamicFormScreen({
     try {
       setTranscript('');
       setPartialTranscript('');
-      setPreview([]);
       await Voice.start('en-US');
       setListening(true);
     } catch (e) {
@@ -96,7 +94,7 @@ export default function DynamicFormScreen({
 
   const stopListening = useCallback(async () => {
     try {
-      setLoading(true); // show loader
+      setLoading(true);
       await Voice.stop();
     } catch (e) { console.warn(e); }
     setListening(false);
@@ -107,7 +105,6 @@ export default function DynamicFormScreen({
     remoteParserRef.current(schemaRef.current, finalTranscript).then(updates => {
       if (!updates || updates.length === 0) return;
 
-      // --- Apply updates to state ---
       setState((prev) => {
         const next = { ...prev };
         for (const u of updates) {
@@ -119,9 +116,8 @@ export default function DynamicFormScreen({
         return next;
       });
 
-      // --- Validate ---
       const newErrors: Record<string, string | null> = {};
-      let talkBackSpeech = ""
+      let talkBackSpeech = "";
       for (const u of updates) {
         const field = schemaRef.current.find((f) => f.id === u.fieldId);
         if (u?.fieldId === 'talkback_text') {
@@ -133,72 +129,20 @@ export default function DynamicFormScreen({
       }
       setErrors((prev) => ({ ...(prev ?? {}), ...newErrors }));
 
-      // --- Speak back to user ---
-      
       Tts.speak(talkBackSpeech);
 
-      // // --- If form is valid, ask for submission ---
-      // if (isFormValid()) {
-      //   Tts.speak("All fields look good. Do you want me to submit the form?");
-      //   // After speaking, start listening for yes/no
-      //   setTimeout(() => {
-      //     startListeningForSubmit();
-      //   }, 3000); // wait a bit so TTS finishes
-      // }
-
-      // --- Cleanup ---
-      setPreview([]);
-      setAppliedTranscript('');
+      setAppliedTranscript(finalTranscript);
       setTranscript('');
     }).catch(err => {
       console.warn('Parser error', err);
       Alert.alert('Parsing Error', 'Could not process your speech. Try again.');
     }).finally(() => {
-      setLoading(false); // hide loader
+      setLoading(false);
     });
 
     setPartialTranscript('');
     setTranscript('');
   }, [transcript, partialTranscript]);
-
-  const isFormValid = useCallback(() => {
-    return Object.values(errors).every((err) => !err);
-  }, [errors]);
-
-  const isPositiveResponse = (text: string) => {
-    const normalized = text.toLowerCase();
-    return ['yes', 'yeah', 'submit', 'sure', 'okay', 'go ahead'].some(p => normalized.includes(p));
-  };
-
-  const isNegativeResponse = (text: string) => {
-    const normalized = text.toLowerCase();
-    return ['no', 'not now', 'cancel', 'later'].some(p => normalized.includes(p));
-  };
-
-  const startListeningForSubmit = useCallback(async () => {
-    try {
-      await Voice.start('en-US');
-      setListening(true);
-
-      Voice.onSpeechResults = (e: any) => {
-        const answer = (e.value ?? []).join(' ').toLowerCase();
-        if (isPositiveResponse(answer)) {
-          Tts.speak("Submitting the form now.");
-          setListening(false);
-          onSubmit?.(state);
-        } else if (isNegativeResponse(answer)) {
-          Tts.speak("Okay, not submitting.");
-          setListening(false);
-        } else {
-          Tts.speak("I did not understand. Please say yes or no.");
-          startListeningForSubmit(); // retry
-        }
-      };
-    } catch (err) {
-      console.warn("Error listening for submit", err);
-    }
-  }, [state, onSubmit]);
-
 
   const renderField = useCallback((item: ListRenderItemInfo<Field>) => {
     const field = item.item;
@@ -278,7 +222,6 @@ export default function DynamicFormScreen({
                     setState((p) => {
                       const cur = Array.isArray(p[field.id]) ? [...p[field.id]] : [];
                       const nextArr = cur.includes(opt.id) ? cur.filter((x) => x !== opt.id) : [...cur, opt.id];
-                      // update errors based on the new array
                       setErrors((prev) => ({ ...prev, [field.id]: validateField(field, nextArr) }));
                       return { ...p, [field.id]: nextArr };
                     });
@@ -307,35 +250,36 @@ export default function DynamicFormScreen({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Voice-Enabled Form</Text>
+      <Text style={styles.title}>Voice-Enabled Site Inspection Form</Text>
+
       <View style={styles.formContainer}>
-        <FlatList contentContainerStyle={styles.listContent}
+        <FlatList
+          contentContainerStyle={styles.listContent}
           data={schema}
           keyExtractor={(field) => field.id}
           renderItem={renderField}
         />
       </View>
+      <FabButton
+        listening={listening}
+        onStart={startListening}
+        onStop={stopListening}
+        style={{
+          position: 'absolute',
+          right: 20,
+          top: screenHeight / 2 - 30,
+          zIndex: 100,
+        }}
+      />
+
       <View style={styles.bottomContainer}>
-        <ScrollView contentContainerStyle={styles.scrollContent} overScrollMode='never' scrollToOverflowEnabled={false}>
-          <View style={styles.micContainer}>
-            <TouchableOpacity
-              style={[styles.micBtn, listening ? styles.micActive : null]}
-              onPress={listening ? stopListening : startListening}
-            >
-              <Text style={styles.micBtnText}>{listening ? 'Stop Listening' : '🎤 Autofill with Voice'}</Text>
-            </TouchableOpacity>
-            <Text style={styles.transcriptText}>
-              Transcript: {listening ? (partialTranscript || '—') : (appliedTranscript || '—')}
-            </Text>
-          </View>
-          <View style={styles.previewContainer}>
-            {loading && (
-              <View style={{ alignItems: 'center', padding: 20 }}>
-                <ActivityIndicator size="large" color="#1E88E5" />
-                <Text style={{ marginTop: 10, color: '#555' }}>Analyzing speech...</Text>
-              </View>
-            )}
-          </View>
+        <ScrollView
+          contentContainerStyle={styles.transcriptScrollContent}
+          showsVerticalScrollIndicator={true}
+        >
+          <Text style={styles.transcriptText}>
+            Transcript: {listening ? (partialTranscript || '—') : (appliedTranscript || '—')}
+          </Text>
         </ScrollView>
       </View>
     </View>
@@ -347,9 +291,27 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#E8F1F2',
   },
+  bottomContainer: {
+    height: screenHeight * 0.2,
+    minHeight: 60,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -5 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    borderColor: 'black',
+    borderWidth: 0.7,
+    elevation: 10,
+    padding: 10,
+  },
+  transcriptScrollContent: {
+    padding: 10,
+  },
   title: {
     fontWeight: '800',
-    fontSize: 24,
+    fontSize: 20,
     margin: 16,
     color: '#0D47A1',
     textAlign: 'center',
@@ -413,20 +375,6 @@ const styles = StyleSheet.create({
     color: '#EF5350',
     marginTop: 6,
     fontSize: 12,
-  },
-  bottomContainer: {
-    flex: 0.5,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -5 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    borderColor: 'black',
-    borderWidth: 0.7,
-    elevation: 10,
-    marginTop: 10,
   },
   scrollContent: {
     padding: 20,

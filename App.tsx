@@ -24,7 +24,7 @@ const exampleSchema: Field[] = [
   // { id: 'notify', label: 'Notify by email', type: 'switch' },
   // { id: 'quantity', label: 'Quantity', type: 'number' }
   { id: 'inspection_date', label: 'Inspection Date', type: 'date' },
-  { id: 'inspection_note', label: 'Inspection Note', type: 'text' },
+  // { id: 'inspection_note', label: 'Inspection Note', type: 'text' },
   { id: 'inspection_outcome', label: 'Inspection Outcome', type: 'text' },
   { id: 'contacted_supervisor', label: 'Were you able to contact site supervisor', type: 'switch' },
   { id: 'work_hours', label: 'Estimated working hours', type: 'number' },
