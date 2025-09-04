@@ -1,30 +1,31 @@
 import axios from 'axios';
 import { Field, FieldUpdate } from './parser';
 
-const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
-const GEMINI_API_KEY = "AIzaSyAHMKFvxM8M5fRugNfhoBf-k7GFoXsQXdg";
-const OPEN_API_KEY = ""
+const API_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const GEMINI_API_KEY = 'AIzaSyAHMKFvxM8M5fRugNfhoBf-k7GFoXsQXdg';
+const OPEN_API_KEY = '';
 
 async function getResponseFromLocalhost(prompt: string) {
   try {
     // Make a request to Ollama server (assuming Ollama supports REST API)
     const ollamaResponse = await axios.post('http://localhost:11435/api/chat', {
-      "model": "llama3.1",
-      "messages": [
-        { role: "system", content: "You are a JSON output bot." },
+      model: 'llama3.1',
+      messages: [
+        { role: 'system', content: 'You are a JSON output bot.' },
         {
-          "role": "user",
-          "content": prompt
-        }
+          role: 'user',
+          content: prompt,
+        },
       ],
-      "stream": false
+      stream: false,
     });
 
     // Send Ollama response back to client
     return ollamaResponse.data.message.content;
   } catch (error) {
     console.error('Error communicating with Ollama:', error);
-    return []
+    return [];
   }
 }
 
@@ -187,12 +188,16 @@ Output a single JSON array of \`FieldUpdate\` objects. Do not include any other 
 Skip fields for which you cannot find any relevant information in the paragraph.
 You must output a valid JSON array of FieldUpdate objects.
 Avoid adding comments in the JSON output.
+Don't include 0 confidence or null response
+For field type like 'select' map the answers to the option's id of the field and value should be the option's id
+Don't answer with any field that were not part of the field map given in input
+Don't duplicate the answers and in case of multiple reponses use the last one given in user input
 Do not include any text before or after the JSON.
 Do not add explanations.
 Return only the JSON array.
 `;
   try {
-    console.log(promptTemplate)
+    console.log(promptTemplate);
     const generatedText = await getResponseFromLocalhost(promptTemplate);
 
     console.log('Generated Text:', generatedText);
