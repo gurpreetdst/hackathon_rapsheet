@@ -198,6 +198,8 @@ export default function DynamicFormScreen({
               setState((p) => ({ ...p, [field.id]: v }));
               setErrors((prev) => ({ ...prev, [field.id]: validateField(field, v) }));
             }}
+            trackColor={{ false: '#767577', true: '#6DD5ED' }}
+            thumbColor={value ? '#2196F3' : '#f4f3f4'}
           />
         );
         break;
@@ -253,53 +255,53 @@ export default function DynamicFormScreen({
     }
 
     return (
-      <View key={field.id} style={{ marginBottom: 12 }}>
-        <Text style={{ marginBottom: 6, fontWeight: '600' }}>{field.label}</Text>
+      <View key={field.id} style={styles.fieldContainer}>
+        <Text style={styles.fieldLabel}>{field.label}</Text>
         {fieldComponent}
         {errors[field.id] && (
-          <Text style={{ color: 'red', marginTop: 4 }}>{errors[field.id]}</Text>
+          <Text style={styles.errorText}>{errors[field.id]}</Text>
         )}
       </View>
     );
   }, [state, errors, schema]);
 
   return (
-    <View style={{ flex: 1 }}>
-      <Text style={{ fontWeight: '700', fontSize: 18, margin: 12 }}>Dynamic Form</Text>
-      <View style={{ flex: 0.5, flexGrow: 1 }} >
-        <FlatList contentContainerStyle={{ padding: 16 }}
+    <View style={styles.container}>
+      <Text style={styles.title}>Voice-Enabled Form</Text>
+      <View style={styles.formContainer}>
+        <FlatList contentContainerStyle={styles.listContent}
           data={schema}
           keyExtractor={(field) => field.id}
           renderItem={renderField}
         />
       </View>
-      <View style={{ flex: 0.5, borderTopWidth: 1, borderColor: '#eee', backgroundColor: '#fafafa' }}>
-        <ScrollView contentContainerStyle={{ padding: 16, marginBottom: 24 }} overScrollMode='never' scrollToOverflowEnabled={false}>
-          <View style={{ marginVertical: 12 }}>
+      <View style={styles.bottomContainer}>
+        <ScrollView contentContainerStyle={styles.scrollContent} overScrollMode='never' scrollToOverflowEnabled={false}>
+          <View style={styles.micContainer}>
             <TouchableOpacity
               style={[styles.micBtn, listening ? styles.micActive : null]}
               onPress={listening ? stopListening : startListening}
             >
-              <Text style={{ color: '#fff' }}>{listening ? 'Stop Listening' : '🎤 Autofill with Voice'}</Text>
+              <Text style={styles.micBtnText}>{listening ? 'Stop Listening' : '🎤 Autofill with Voice'}</Text>
             </TouchableOpacity>
-            <Text>
+            <Text style={styles.transcriptText}>
               Transcript: {listening ? (partialTranscript || '—') : (appliedTranscript || '—')}
             </Text>
           </View>
 
-          <View style={{ marginVertical: 12 }}>
-            <Text style={{ fontWeight: '700' }}>Preview changes (auto-detected)</Text>
-            {computeDiffLines.map((d) => (
+          <View style={styles.previewContainer}>
+            <Text style={styles.previewTitle}>Preview Changes</Text>
+            {computeDiffLines.length > 0 ? computeDiffLines.map((d) => (
               <View key={d.fieldId} style={styles.diffRow}>
-                <Text style={{ fontWeight: '600' }}>{d.label}</Text>
-                <Text>Before: {String(d.before ?? '—')}</Text>
-                <Text>After: {String(d.after)}</Text>
-                <Text style={{ color: '#666' }}>
+                <Text style={styles.diffLabel}>{d.label}</Text>
+                <Text style={styles.diffValue}>Before: {String(d.before ?? '—')}</Text>
+                <Text style={styles.diffValue}>After: {String(d.after)}</Text>
+                <Text style={styles.diffConfidence}>
                   Confidence: {(d.confidence * 100).toFixed(0)}%
                 </Text>
               </View>
-            ))}
-            <View style={{ flexDirection: 'row', marginTop: 8 }}>
+            )) : <Text style={styles.noPreviewText}>No changes detected.</Text>}
+            <View style={styles.actionButtons}>
               <TouchableOpacity
                 onPress={applyPreview}
                 style={[
@@ -317,11 +319,10 @@ export default function DynamicFormScreen({
               <TouchableOpacity
                 onPress={() => {
                   setPreview([]);
-                  setTranscript('');
                 }}
                 style={styles.cancelBtn}
               >
-                <Text>Cancel</Text>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -332,29 +333,205 @@ export default function DynamicFormScreen({
 }
 
 const styles = StyleSheet.create({
-  input: { borderWidth: 1, borderColor: '#ccc', padding: 10, borderRadius: 6 },
-  optionRow: { padding: 8, borderRadius: 6, borderWidth: 1, borderColor: '#ddd', marginRight: 8, marginBottom: 8 },
-  optionRowSelected: { backgroundColor: '#0a84ff', borderColor: '#0a84ff' },
-  micBtn: { backgroundColor: '#0a84ff', padding: 12, alignItems: 'center', borderRadius: 8 },
-  micActive: { backgroundColor: '#f66' },
-  diffRow: { padding: 8, borderWidth: 1, borderColor: '#eee', marginTop: 8, borderRadius: 6 },
-  cancelBtn: { padding: 10, borderRadius: 6, justifyContent: 'center' },
-  inputError: { borderColor: '#ff3b30' },
-  groupError: { borderWidth: 1, borderColor: '#ff3b30', borderRadius: 6, padding: 4 },
-  errorText: { color: '#ff3b30', marginTop: 4 },
-  applyBtn: {
-    padding: 10,
-    borderRadius: 6,
+  container: {
+    flex: 1,
+    backgroundColor: '#E8F1F2',
+  },
+  title: {
+    fontWeight: '800',
+    fontSize: 24,
+    margin: 16,
+    color: '#0D47A1',
+    textAlign: 'center',
+  },
+  formContainer: {
+    flex: 1,
+  },
+  listContent: {
+    padding: 16,
+  },
+  fieldContainer: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  fieldLabel: {
+    marginBottom: 8,
+    fontWeight: '600',
+    fontSize: 16, // Reduced font size
+    color: '#333',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    padding: 10, // Reduced padding
+    fontSize: 14, // Reduced font size
+    borderRadius: 8,
+    backgroundColor: '#F9F9F9',
+    color: '#333',
+  },
+  inputError: {
+    borderColor: '#EF5350',
+    borderWidth: 2,
+  },
+  optionRow: {
+    paddingVertical: 8, // Reduced padding
+    paddingHorizontal: 14, // Reduced padding
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#B0BEC5',
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  optionRowSelected: {
+    backgroundColor: '#42A5F5',
+    borderColor: '#42A5F5',
+  },
+  groupError: {
+    borderWidth: 2,
+    borderColor: '#EF5350',
+    borderRadius: 12,
+    padding: 4,
+  },
+  errorText: {
+    color: '#EF5350',
+    marginTop: 6,
+    fontSize: 12,
+  },
+  bottomContainer: {
+    flex: 0.5,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -5 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    borderColor: 'black',
+    borderWidth: 0.7,
+    elevation: 10,
+    marginTop: 10,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  micContainer: {
+    marginBottom: 20,
+  },
+  micBtn: {
+    backgroundColor: '#1E88E5',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
     alignItems: 'center',
-    backgroundColor: '#0a84ff'
+    borderRadius: 10,
+    shadowColor: '#1E88E5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  micActive: {
+    backgroundColor: '#EF5350',
+    shadowColor: '#EF5350',
+  },
+  micBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  transcriptText: {
+    marginTop: 12,
+    color: '#555',
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
+  previewContainer: {
+    marginTop: 10,
+  },
+  previewTitle: {
+    fontWeight: '700',
+    fontSize: 18,
+    color: '#333',
+    marginBottom: 10,
+  },
+  noPreviewText: {
+    color: '#888',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  diffRow: {
+    backgroundColor: '#F9F9F9', // Subtle background color
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  diffLabel: {
+    fontWeight: 'bold',
+    color: '#1E88E5',
+  },
+  diffValue: {
+    color: '#666',
+    marginTop: 2,
+  },
+  diffConfidence: {
+    color: '#888',
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    marginTop: 16,
+    justifyContent: 'flex-start',
+  },
+  applyBtn: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    flex: 1,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
   },
   applyBtnDisabled: {
-    backgroundColor: '#ccc', // grey
+    backgroundColor: '#BDBDBD',
+    shadowColor: 'transparent',
+    elevation: 0,
   },
   applyBtnText: {
     color: 'white',
+    fontWeight: 'bold',
   },
   applyBtnTextDisabled: {
-    color: '#888', // dimmed text when disabled
+    color: '#666',
+  },
+  cancelBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    backgroundColor: '#E0E0E0', // Changed button color
+    marginLeft: 10,
+  },
+  cancelBtnText: {
+    color: '#555',
+    fontWeight: '600',
   },
 });
