@@ -11,6 +11,7 @@ async function getResponseFromLocalhost(prompt: string) {
     const ollamaResponse = await axios.post('http://localhost:11435/api/chat', {
       "model": "llama3.1",
       "messages": [
+        { role: "system", content: "You are a JSON output bot." },
         {
           "role": "user",
           "content": prompt
@@ -183,9 +184,18 @@ ${paragraphString}
 
 **Expected Output:**
 Output a single JSON array of \`FieldUpdate\` objects. Do not include any other text or explanation.
+Skip fields for which you cannot find any relevant information in the paragraph.
+You must output a valid JSON array of FieldUpdate objects.
+Avoid adding comments in the JSON output.
+Do not include any text before or after the JSON.
+Do not add explanations.
+Return only the JSON array.
 `;
   try {
+    console.log(promptTemplate)
     const generatedText = await getResponseFromLocalhost(promptTemplate);
+
+    console.log('Generated Text:', generatedText);
 
     // The model will output a clean JSON array
     const jsonString = generatedText
