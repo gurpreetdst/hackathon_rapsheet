@@ -183,19 +183,20 @@ ${JSON.stringify(fieldsArray, null, 2)}
 ${paragraphString}
 \`\`\`
 
-**Expected Output:**
-Output a single JSON array of \`FieldUpdate\` objects. Do not include any other text or explanation.
-Skip fields for which you cannot find any relevant information in the paragraph.
-You must output a valid JSON array of FieldUpdate objects.
-Avoid adding comments in the JSON output.
-Don't include 0 confidence or null response
-For field type like 'select' map the answers to the option's id of the field and value should be the option's id
-Don't answer with any field that were not part of the field map given in input
-Don't duplicate the answers and in case of multiple reponses use the last one given in user input
-Do not include any text before or after the JSON.
-Do not add explanations.
-Return only the JSON array.
+**Expected Output Instructions:**
+Your job is to parse only the provided paragraph and extract information that matches the given fields.
+- For each piece of information you can clearly identify, return a 'FieldUpdate' object.  
+- If you cannot find a value for a field, do **not include that field** in the output.  
+- Do not include 'null', empty strings, zero confidence, or placeholder values.  
+- Only return updates for fields that are **explicitly mentioned in the paragraph**.  
+- Do not attempt to guess or fill in missing values.  
+- For 'select' fields, the 'value' must be the matching option's 'id'.  
+- If a field is mentioned multiple times, only keep the **last occurrence**.  
+- Do not output any fields other than those found in the text.  
+- Your output must be a valid JSON array of 'FieldUpdate' objects.  
+- Return only the JSON, with no extra text, comments, or explanation.  
 `;
+
   try {
     console.log(promptTemplate);
     const generatedText = await getResponseFromLocalhost(promptTemplate);

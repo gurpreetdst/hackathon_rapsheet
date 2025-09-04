@@ -10,7 +10,7 @@ import {
   Switch,
   Alert,
   ScrollView,
-  ListRenderItemInfo,
+  ListRenderItemInfo, ActivityIndicator
 } from 'react-native';
 import Voice from '@react-native-voice/voice';
 import { Field, FieldUpdate } from './parser';
@@ -39,9 +39,11 @@ export default function DynamicFormScreen({
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [preview, setPreview] = useState<FieldUpdate[]>([]);
-  const [partialTranscript, setPartialTranscript] = useState(''); // New state for partial results
+  const [partialTranscript, setPartialTranscript] = useState('');
   const [errors, setErrors] = useState<Record<string, string | null>>({});
-  const [appliedTranscript, setAppliedTranscript] = useState(''); // applied text
+  const [appliedTranscript, setAppliedTranscript] = useState('');
+  const [loading, setLoading] = useState(false);
+
 
   // Use a ref to store a stable reference to the schema and remoteParser function
   const schemaRef = useRef(schema);
@@ -101,10 +103,19 @@ export default function DynamicFormScreen({
     const finalTranscript = transcript || partialTranscript;
     if (!finalTranscript) return;
 
-    remoteParserRef.current(schemaRef.current, finalTranscript).then(updates => {
-      setPreview(updates);
-      setAppliedTranscript(finalTranscript); // store applied version separately
-    });
+    setLoading(true); // show loader while parsing
+    remoteParserRef.current(schemaRef.current, finalTranscript)
+      .then(updates => {
+        setPreview(updates);
+        setAppliedTranscript(finalTranscript);
+      })
+      .catch(err => {
+        console.warn('Parser error', err);
+        Alert.alert('Parsing Error', 'Could not process your speech. Try again.');
+      })
+      .finally(() => {
+        setLoading(false); // hide loader
+      });
 
     setPartialTranscript('');
     setTranscript('');
@@ -290,41 +301,50 @@ export default function DynamicFormScreen({
           </View>
 
           <View style={styles.previewContainer}>
-            <Text style={styles.previewTitle}>Preview Changes</Text>
-            {computeDiffLines.length > 0 ? computeDiffLines.map((d) => (
-              <View key={d.fieldId} style={styles.diffRow}>
-                <Text style={styles.diffLabel}>{d.label}</Text>
-                <Text style={styles.diffValue}>Before: {String(d.before ?? '—')}</Text>
-                <Text style={styles.diffValue}>After: {String(d.after)}</Text>
-                <Text style={styles.diffConfidence}>
-                  Confidence: {(d.confidence * 100).toFixed(0)}%
-                </Text>
+            {loading ? (
+              <View style={{ alignItems: 'center', padding: 20 }}>
+                <ActivityIndicator size="large" color="#1E88E5" />
+                <Text style={{ marginTop: 10, color: '#555' }}>Analyzing speech...</Text>
               </View>
-            )) : <Text style={styles.noPreviewText}>No changes detected.</Text>}
-            <View style={styles.actionButtons}>
-              <TouchableOpacity
-                onPress={applyPreview}
-                style={[
-                  styles.applyBtn,
-                  computeDiffLines.length === 0 && styles.applyBtnDisabled,
-                  { marginRight: 8 }
-                ]}
-                disabled={computeDiffLines.length === 0}
-              >
-                <Text style={computeDiffLines.length === 0 ? styles.applyBtnTextDisabled : styles.applyBtnText}>
-                  Apply
-                </Text>
-              </TouchableOpacity>
+            ) : (
+              <>
+                <Text style={styles.previewTitle}>Preview Changes</Text>
+                {computeDiffLines.length > 0 ? computeDiffLines.map((d) => (
+                  <View key={d.fieldId} style={styles.diffRow}>
+                    <Text style={styles.diffLabel}>{d.label}</Text>
+                    <Text style={styles.diffValue}>Before: {String(d.before ?? '—')}</Text>
+                    <Text style={styles.diffValue}>After: {String(d.after)}</Text>
+                    <Text style={styles.diffConfidence}>
+                      Confidence: {(d.confidence * 100).toFixed(0)}%
+                    </Text>
+                  </View>
+                )) : <Text style={styles.noPreviewText}>No changes detected.</Text>}
+                <View style={styles.actionButtons}>
+                  <TouchableOpacity
+                    onPress={applyPreview}
+                    style={[
+                      styles.applyBtn,
+                      computeDiffLines.length === 0 && styles.applyBtnDisabled,
+                      { marginRight: 8 }
+                    ]}
+                    disabled={computeDiffLines.length === 0}
+                  >
+                    <Text style={computeDiffLines.length === 0 ? styles.applyBtnTextDisabled : styles.applyBtnText}>
+                      Apply
+                    </Text>
+                  </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() => {
-                  setPreview([]);
-                }}
-                style={styles.cancelBtn}
-              >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setPreview([]);
+                    }}
+                    style={styles.cancelBtn}
+                  >
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </ScrollView>
       </View>
