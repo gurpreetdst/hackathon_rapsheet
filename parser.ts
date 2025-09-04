@@ -76,14 +76,18 @@ function markSpan(used: Span[], newSpan: Span) {
 }
 
 /** Coerce raw string to typed value based on field.type */
-function coerceValue(field: Field, raw: string): { value: any; confidence: number; evidence?: string } | null {
+function coerceValue(
+  field: Field,
+  raw: string,
+): { value: any; confidence: number; evidence?: string } | null {
   const t = raw.trim();
   if (!t) return null;
   switch (field.type) {
     case 'number': {
       // allow currency symbols, commas
       const num = Number(t.replace(/[^0-9.\-]/g, ''));
-      if (!Number.isNaN(num)) return { value: num, confidence: 0.9, evidence: 'number' };
+      if (!Number.isNaN(num))
+        return { value: num, confidence: 0.9, evidence: 'number' };
       return null;
     }
     case 'date':
@@ -108,7 +112,12 @@ function coerceValue(field: Field, raw: string): { value: any; confidence: numbe
     }
     case 'phone': {
       const m = t.match(/(\+?\d[\d\-\s().]{6,}\d)/);
-      if (m) return { value: m[1].replace(/[\s\-\(\)\.]/g, ''), confidence: 0.9, evidence: 'phone' };
+      if (m)
+        return {
+          value: m[1].replace(/[\s\-\(\)\.]/g, ''),
+          confidence: 0.9,
+          evidence: 'phone',
+        };
       return null;
     }
     case 'checkbox':
@@ -136,7 +145,10 @@ function tokenPresent(text: string, token: string) {
 /**
  * MAIN PARSER
  */
-export function parseTranscript(schema: Field[], transcript: string): { updates: FieldUpdate[]; debug: any } {
+export function parseTranscript(
+  schema: Field[],
+  transcript: string,
+): { updates: FieldUpdate[]; debug: any } {
   const text = transcript || '';
   const usedSpans: Span[] = [];
   const updates: FieldUpdate[] = [];
@@ -154,12 +166,21 @@ export function parseTranscript(schema: Field[], transcript: string): { updates:
     let m;
     while ((m = emailRe.exec(text))) {
       const span = { start: m.index, end: m.index + m[0].length };
-      if (!isSpanFree(usedSpans, span)) { debug.push({ type: 'email-skip-overlap', match: m[0], span }); continue; }
-      let target = schema.find((f) => f.type === 'email');
-      if (!target) target = schema.find((f) => f.label.toLowerCase().includes('email'));
-      if (!target) target = schema.find((f) => f.type === 'text');
+      if (!isSpanFree(usedSpans, span)) {
+        debug.push({ type: 'email-skip-overlap', match: m[0], span });
+        continue;
+      }
+      let target = schema.find(f => f.type === 'email');
+      if (!target)
+        target = schema.find(f => f.label.toLowerCase().includes('email'));
+      if (!target) target = schema.find(f => f.type === 'text');
       if (target) {
-        updates.push({ fieldId: target.id, value: m[1], confidence: 0.95, evidence: 'email' });
+        updates.push({
+          fieldId: target.id,
+          value: m[1],
+          confidence: 0.95,
+          evidence: 'email',
+        });
         markUsedRange(span, 'email');
         debug.push({ type: 'email-match', match: m[0], field: target.id });
       }
@@ -174,12 +195,25 @@ export function parseTranscript(schema: Field[], transcript: string): { updates:
       const raw = (m[0] || '').trim();
       if (!raw) continue;
       const span = { start: m.index, end: m.index + raw.length };
-      if (!isSpanFree(usedSpans, span)) { debug.push({ type: 'phone-skip-overlap', match: raw, span }); continue; }
-      let target = schema.find((f) => f.type === 'phone');
-      if (!target) target = schema.find((f) => f.label.toLowerCase().includes('phone') || f.label.toLowerCase().includes('mobile'));
-      if (!target) target = schema.find((f) => f.type === 'text');
+      if (!isSpanFree(usedSpans, span)) {
+        debug.push({ type: 'phone-skip-overlap', match: raw, span });
+        continue;
+      }
+      let target = schema.find(f => f.type === 'phone');
+      if (!target)
+        target = schema.find(
+          f =>
+            f.label.toLowerCase().includes('phone') ||
+            f.label.toLowerCase().includes('mobile'),
+        );
+      if (!target) target = schema.find(f => f.type === 'text');
       if (target) {
-        updates.push({ fieldId: target.id, value: raw.replace(/\D/g, ''), confidence: 0.9, evidence: 'phone' });
+        updates.push({
+          fieldId: target.id,
+          value: raw.replace(/\D/g, ''),
+          confidence: 0.9,
+          evidence: 'phone',
+        });
         markUsedRange(span, 'phone');
         debug.push({ type: 'phone-match', match: raw, field: target.id });
       }
@@ -191,13 +225,32 @@ export function parseTranscript(schema: Field[], transcript: string): { updates:
     const chronoResults = (chrono as any).parse(text);
     if (chronoResults && chronoResults.length) {
       for (const cr of chronoResults) {
-        const span = { start: cr.index, end: cr.index + (cr.text?.length ?? 0) };
-        if (!isSpanFree(usedSpans, span)) { debug.push({ type: 'chrono-skip-overlap', span, text: cr.text }); continue; }
-        const candidate = schema.find((f) => ['date', 'datetime', 'time'].includes(f.type) && !updates.find((u) => u.fieldId === f.id));
+        const span = {
+          start: cr.index,
+          end: cr.index + (cr.text?.length ?? 0),
+        };
+        if (!isSpanFree(usedSpans, span)) {
+          debug.push({ type: 'chrono-skip-overlap', span, text: cr.text });
+          continue;
+        }
+        const candidate = schema.find(
+          f =>
+            ['date', 'datetime', 'time'].includes(f.type) &&
+            !updates.find(u => u.fieldId === f.id),
+        );
         if (candidate) {
-          updates.push({ fieldId: candidate.id, value: cr.date().toISOString(), confidence: 0.85, evidence: 'chrono' });
+          updates.push({
+            fieldId: candidate.id,
+            value: cr.date().toISOString(),
+            confidence: 0.85,
+            evidence: 'chrono',
+          });
           markUsedRange(span, 'chrono');
-          debug.push({ type: 'chrono-match', text: cr.text, field: candidate.id });
+          debug.push({
+            type: 'chrono-match',
+            text: cr.text,
+            field: candidate.id,
+          });
         }
       }
     }
@@ -206,31 +259,66 @@ export function parseTranscript(schema: Field[], transcript: string): { updates:
   }
 
   // 4) option fields (select/radio/checkbox)
-  for (const field of schema.filter((f) => ['select', 'radio', 'checkbox'].includes(f.type))) {
+  for (const field of schema.filter(f =>
+    ['select', 'radio', 'checkbox'].includes(f.type),
+  )) {
     if (!field.options || field.options.length === 0) continue;
     // try exact phrase match for option label or synonyms
     let matched = false;
     for (const opt of field.options) {
-      const phrases = [opt.label, ...(opt.synonyms ?? [])].filter(Boolean).sort((a, b) => b.length - a.length);
+      const phrases = [opt.label, ...(opt.synonyms ?? [])]
+        .filter(Boolean)
+        .sort((a, b) => b.length - a.length);
       for (const phrase of phrases) {
         const re = new RegExp(`\\b${escRe(phrase)}\\b`, 'i');
         const m = re.exec(text);
         if (m) {
           const span = { start: m.index, end: m.index + m[0].length };
-          if (!isSpanFree(usedSpans, span)) { debug.push({ type: 'option-skip-overlap', field: field.id, opt: opt.id, phrase }); continue; }
+          if (!isSpanFree(usedSpans, span)) {
+            debug.push({
+              type: 'option-skip-overlap',
+              field: field.id,
+              opt: opt.id,
+              phrase,
+            });
+            continue;
+          }
           if (field.type === 'checkbox') {
             // accumulate found checkbox options
-            const existing = updates.find((u) => u.fieldId === field.id && Array.isArray(u.value));
+            const existing = updates.find(
+              u => u.fieldId === field.id && Array.isArray(u.value),
+            );
             if (existing) existing.value.push(opt.id);
-            else updates.push({ fieldId: field.id, value: [opt.id], confidence: 0.9, evidence: 'option-exact' });
+            else
+              updates.push({
+                fieldId: field.id,
+                value: [opt.id],
+                confidence: 0.9,
+                evidence: 'option-exact',
+              });
             markUsedRange(span, 'option-exact');
-            debug.push({ type: 'option-exact', field: field.id, opt: opt.id, phrase });
+            debug.push({
+              type: 'option-exact',
+              field: field.id,
+              opt: opt.id,
+              phrase,
+            });
             matched = true;
             // for checkboxes, continue to find more options
           } else {
-            updates.push({ fieldId: field.id, value: opt.id, confidence: 0.92, evidence: 'option-exact' });
+            updates.push({
+              fieldId: field.id,
+              value: opt.id,
+              confidence: 0.92,
+              evidence: 'option-exact',
+            });
             markUsedRange(span, 'option-exact');
-            debug.push({ type: 'option-exact', field: field.id, opt: opt.id, phrase });
+            debug.push({
+              type: 'option-exact',
+              field: field.id,
+              opt: opt.id,
+              phrase,
+            });
             matched = true;
             break;
           }
@@ -247,17 +335,40 @@ export function parseTranscript(schema: Field[], transcript: string): { updates:
       for (const cand of candidates) {
         const tokens = cand.toLowerCase().split(/\s+/).filter(Boolean);
         if (tokens.length === 0) continue;
-        const allPresent = tokens.every((tk) => tokenPresent(text, tk));
+        const allPresent = tokens.every(tk => tokenPresent(text, tk));
         if (allPresent) {
           // do fuzzy assignment (no precise span)
           if (field.type === 'checkbox') {
-            const existing = updates.find((u) => u.fieldId === field.id && Array.isArray(u.value));
+            const existing = updates.find(
+              u => u.fieldId === field.id && Array.isArray(u.value),
+            );
             if (existing) existing.value.push(opt.id);
-            else updates.push({ fieldId: field.id, value: [opt.id], confidence: 0.75, evidence: 'option-fuzzy' });
-            debug.push({ type: 'option-fuzzy', field: field.id, opt: opt.id, cand });
+            else
+              updates.push({
+                fieldId: field.id,
+                value: [opt.id],
+                confidence: 0.75,
+                evidence: 'option-fuzzy',
+              });
+            debug.push({
+              type: 'option-fuzzy',
+              field: field.id,
+              opt: opt.id,
+              cand,
+            });
           } else {
-            updates.push({ fieldId: field.id, value: opt.id, confidence: 0.75, evidence: 'option-fuzzy' });
-            debug.push({ type: 'option-fuzzy', field: field.id, opt: opt.id, cand });
+            updates.push({
+              fieldId: field.id,
+              value: opt.id,
+              confidence: 0.75,
+              evidence: 'option-fuzzy',
+            });
+            debug.push({
+              type: 'option-fuzzy',
+              field: field.id,
+              opt: opt.id,
+              cand,
+            });
           }
           fuzzyMatched = true;
           break;
@@ -269,25 +380,59 @@ export function parseTranscript(schema: Field[], transcript: string): { updates:
 
   // 5) booleans / switches
   {
-    const trueWords = ['yes', 'true', 'enable', 'enabled', 'on', 'allow', 'allowed'];
-    const falseWords = ['no', 'false', 'disable', 'disabled', 'off', "don't", 'do not', 'not'];
-    for (const field of schema.filter((f) => f.type === 'switch')) {
+    const trueWords = [
+      'yes',
+      'true',
+      'enable',
+      'enabled',
+      'on',
+      'allow',
+      'allowed',
+    ];
+    const falseWords = [
+      'no',
+      'false',
+      'disable',
+      'disabled',
+      'off',
+      "don't",
+      'do not',
+      'not',
+    ];
+    for (const field of schema.filter(f => f.type === 'switch')) {
       // try "label <verb> <value>" pattern
-      const labelPhrases = [field.label, ...(field.synonyms ?? [])].filter(Boolean).sort((a, b) => b.length - a.length);
+      const labelPhrases = [field.label, ...(field.synonyms ?? [])]
+        .filter(Boolean)
+        .sort((a, b) => b.length - a.length);
       let matched = false;
       for (const lp of labelPhrases) {
-        const kvRe = new RegExp(`\\b${escRe(lp)}\\b\\s*(?:is|:|=|to|as)?\\s*([^,;\\n\\.]+)`, 'i');
+        const kvRe = new RegExp(
+          `\\b${escRe(lp)}\\b\\s*(?:is|:|=|to|as)?\\s*([^,;\\n\\.]+)`,
+          'i',
+        );
         const m = kvRe.exec(text);
         if (m && m[1]) {
           const valueStr = m[1].toLowerCase();
-          const isTrue = trueWords.some((w) => valueStr.includes(w));
-          const isFalse = falseWords.some((w) => valueStr.includes(w));
+          const isTrue = trueWords.some(w => valueStr.includes(w));
+          const isFalse = falseWords.some(w => valueStr.includes(w));
           const span = { start: m.index, end: m.index + m[0].length };
-          if (!isSpanFree(usedSpans, span)) { debug.push({ type: 'switch-skip-overlap', field: field.id, lp }); break; }
+          if (!isSpanFree(usedSpans, span)) {
+            debug.push({ type: 'switch-skip-overlap', field: field.id, lp });
+            break;
+          }
           if (isTrue || isFalse) {
-            updates.push({ fieldId: field.id, value: isTrue, confidence: 0.9, evidence: 'label-boolean' });
+            updates.push({
+              fieldId: field.id,
+              value: isTrue,
+              confidence: 0.9,
+              evidence: 'label-boolean',
+            });
             markUsedRange(span, 'label-boolean');
-            debug.push({ type: 'switch-match', field: field.id, value: isTrue });
+            debug.push({
+              type: 'switch-match',
+              field: field.id,
+              value: isTrue,
+            });
             matched = true;
             break;
           }
@@ -299,7 +444,12 @@ export function parseTranscript(schema: Field[], transcript: string): { updates:
         const tRe = new RegExp(`turn\\s+${escRe(lp)}\\s+(on|off)`, 'i');
         const m = tRe.exec(text);
         if (m) {
-          updates.push({ fieldId: field.id, value: m[1].toLowerCase() === 'on', confidence: 0.9, evidence: 'turn-on-off' });
+          updates.push({
+            fieldId: field.id,
+            value: m[1].toLowerCase() === 'on',
+            confidence: 0.9,
+            evidence: 'turn-on-off',
+          });
           debug.push({ type: 'switch-turn', field: field.id, value: m[1] });
           break;
         }
@@ -314,11 +464,21 @@ export function parseTranscript(schema: Field[], transcript: string): { updates:
     while ((m = numRe.exec(text))) {
       const rawNum = m[0];
       const span = { start: m.index, end: m.index + rawNum.length };
-      if (!isSpanFree(usedSpans, span)) { debug.push({ type: 'number-skip-overlap', match: rawNum }); continue; }
-      const field = schema.find((f) => f.type === 'number' && !updates.find((u) => u.fieldId === f.id));
+      if (!isSpanFree(usedSpans, span)) {
+        debug.push({ type: 'number-skip-overlap', match: rawNum });
+        continue;
+      }
+      const field = schema.find(
+        f => f.type === 'number' && !updates.find(u => u.fieldId === f.id),
+      );
       if (field) {
         const val = Number(rawNum.replace(/,/g, ''));
-        updates.push({ fieldId: field.id, value: val, confidence: 0.9, evidence: 'digits' });
+        updates.push({
+          fieldId: field.id,
+          value: val,
+          confidence: 0.9,
+          evidence: 'digits',
+        });
         markUsedRange(span, 'digits');
         debug.push({ type: 'number-match', field: field.id, value: val });
       }
@@ -327,40 +487,81 @@ export function parseTranscript(schema: Field[], transcript: string): { updates:
 
   // 7) label-based key:value generic mapping (try full label / synonyms first)
   for (const field of schema) {
-    if (updates.find((u) => u.fieldId === field.id)) continue;
-    const labelPhrases = [field.label, ...(field.synonyms ?? []), field.id].filter(Boolean).sort((a, b) => b.length - a.length);
+    if (updates.find(u => u.fieldId === field.id)) continue;
+    const labelPhrases = [field.label, ...(field.synonyms ?? []), field.id]
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length);
     if (!labelPhrases.length) continue;
-    const pattern = labelPhrases.map((p) => escRe(p)).join('|');
-    const kvRegex = new RegExp(`\\b(?:${pattern})\\b\\s*(?:is|:|=|to|as)?\\s*([^,;\\n\\.]+)`, 'i');
+    const pattern = labelPhrases.map(p => escRe(p)).join('|');
+    const kvRegex = new RegExp(
+      `\\b(?:${pattern})\\b\\s*(?:is|:|=|to|as)?\\s*([^,;\\n\\.]+)`,
+      'i',
+    );
     const r = kvRegex.exec(text);
     if (r && r[1]) {
       const rawVal = r[1].trim();
       const span = { start: r.index, end: r.index + r[0].length };
-      if (!isSpanFree(usedSpans, span)) { debug.push({ type: 'labelkv-skip-overlap', field: field.id, match: r[0] }); continue; }
+      if (!isSpanFree(usedSpans, span)) {
+        debug.push({
+          type: 'labelkv-skip-overlap',
+          field: field.id,
+          match: r[0],
+        });
+        continue;
+      }
       const coerced = coerceValue(field, rawVal);
       if (coerced) {
-        updates.push({ fieldId: field.id, value: coerced.value, confidence: coerced.confidence, evidence: 'label-kv' });
+        updates.push({
+          fieldId: field.id,
+          value: coerced.value,
+          confidence: coerced.confidence,
+          evidence: 'label-kv',
+        });
         markUsedRange(span, 'label-kv');
-        debug.push({ type: 'labelkv-match-coerced', field: field.id, value: coerced.value, evidence: coerced.evidence });
-      } else if (['select', 'radio', 'checkbox'].includes(field.type) && field.options) {
+        debug.push({
+          type: 'labelkv-match-coerced',
+          field: field.id,
+          value: coerced.value,
+          evidence: coerced.evidence,
+        });
+      } else if (
+        ['select', 'radio', 'checkbox'].includes(field.type) &&
+        field.options
+      ) {
         // try matching options against rawVal
         const foundIds: string[] = [];
         for (const opt of field.options) {
           const cand = opt.label.toLowerCase();
-          if (new RegExp(`\\b${escRe(cand)}\\b`, 'i').test(rawVal)) foundIds.push(opt.id);
+          if (new RegExp(`\\b${escRe(cand)}\\b`, 'i').test(rawVal))
+            foundIds.push(opt.id);
         }
         if (foundIds.length) {
           const val = field.type === 'checkbox' ? foundIds : foundIds[0];
-          updates.push({ fieldId: field.id, value: val, confidence: 0.85, evidence: 'label-kv-option' });
+          updates.push({
+            fieldId: field.id,
+            value: val,
+            confidence: 0.85,
+            evidence: 'label-kv-option',
+          });
           markUsedRange(span, 'label-kv-option');
           debug.push({ type: 'labelkv-option', field: field.id, value: val });
         } else {
-          updates.push({ fieldId: field.id, value: rawVal, confidence: 0.6, evidence: 'label-kv-text' });
+          updates.push({
+            fieldId: field.id,
+            value: rawVal,
+            confidence: 0.6,
+            evidence: 'label-kv-text',
+          });
           markUsedRange(span, 'label-kv-text');
           debug.push({ type: 'labelkv-text', field: field.id, rawVal });
         }
       } else {
-        updates.push({ fieldId: field.id, value: rawVal, confidence: 0.6, evidence: 'label-kv-text' });
+        updates.push({
+          fieldId: field.id,
+          value: rawVal,
+          confidence: 0.6,
+          evidence: 'label-kv-text',
+        });
         markUsedRange(span, 'label-kv-text');
         debug.push({ type: 'labelkv-text-fallback', field: field.id, rawVal });
       }
@@ -384,14 +585,28 @@ export function parseTranscript(schema: Field[], transcript: string): { updates:
   }
 
   if (leftover) {
-    const clauses = leftover.split(/\b(?:,|;|\band\b|\n)\b/).map((c) => c.trim()).filter(Boolean);
-    const emptyTextFields = schema.filter((f) => ['text'].includes(f.type) && !updates.find((u) => u.fieldId === f.id));
+    const clauses = leftover
+      .split(/\b(?:,|;|\band\b|\n)\b/)
+      .map(c => c.trim())
+      .filter(Boolean);
+    const emptyTextFields = schema.filter(
+      f => ['text'].includes(f.type) && !updates.find(u => u.fieldId === f.id),
+    );
     let idx = 0;
     for (const cl of clauses) {
       if (idx >= emptyTextFields.length) break;
       if (cl.length < 2) continue;
-      updates.push({ fieldId: emptyTextFields[idx].id, value: cl, confidence: 0.55, evidence: 'fallback-clause' });
-      debug.push({ type: 'fallback-assign', field: emptyTextFields[idx].id, clause: cl });
+      updates.push({
+        fieldId: emptyTextFields[idx].id,
+        value: cl,
+        confidence: 0.55,
+        evidence: 'fallback-clause',
+      });
+      debug.push({
+        type: 'fallback-assign',
+        field: emptyTextFields[idx].id,
+        clause: cl,
+      });
       idx++;
     }
   }
@@ -404,7 +619,10 @@ export function parseTranscript(schema: Field[], transcript: string): { updates:
   }
   const finalUpdates = Array.from(map.values());
 
-  return { updates: finalUpdates, debug: { usedSpans: mergeSpans(usedSpans), events: debug } };
+  return {
+    updates: finalUpdates,
+    debug: { usedSpans: mergeSpans(usedSpans), events: debug },
+  };
 }
 
 /**
@@ -427,4 +645,3 @@ const transcript = "My name is Gurpreet, email gurpreet@example.com, phone +91 9
 const res = parseTranscript(schema, transcript);
 console.log(JSON.stringify(res, null, 2));
 */
-

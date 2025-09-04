@@ -1,50 +1,51 @@
-import { Field, FieldUpdate } from "./parser";
+import { Field, FieldUpdate } from './parser';
 
-const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
-const GEMINI_API_KEY = "AIzaSyAHMKFvxM8M5fRugNfhoBf-k7GFoXsQXdg";
-const OPEN_API_KEY = "put_your_key_here"
+const API_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const GEMINI_API_KEY = 'AIzaSyAHMKFvxM8M5fRugNfhoBf-k7GFoXsQXdg';
+const OPEN_API_KEY = 'key';
 
 async function getResponseFromOpenAI(input: string) {
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + OPEN_API_KEY,
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + OPEN_API_KEY,
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: 'gpt-4o-mini',
       input: input,
-      store: false
-    })
+      store: false,
+    }),
   });
 
   const data = await response.json();
-  console.log(data)
-  const generatedText = data?.output[0].content[0].text || "[]";
-  console.log(generatedText)
+  console.log(data);
+  const generatedText = data?.output[0].content[0].text || '[]';
+  console.log(generatedText);
   return generatedText;
 }
 
 export async function getResponseFromGemini(input: string) {
   const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-goog-api-key': GEMINI_API_KEY,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: input }],
-          },
-        ],
-      }),
-    });
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-goog-api-key': GEMINI_API_KEY,
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [{ text: input }],
+        },
+      ],
+    }),
+  });
   const data = await response.json();
-    console.log("AI Response:", data);
-    // Gemini response is text, we need to parse JSON inside it
+  console.log('AI Response:', data);
+  // Gemini response is text, we need to parse JSON inside it
   const generatedText =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+    data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
 
   return generatedText;
 }
@@ -59,37 +60,44 @@ export async function generateFormFromAI(formType: string): Promise<Field[]> {
       label: string;
       type: 'text' | 'number' | 'date' | 'time' | 'datetime' | 'radio' | 'select' | 'email' | 'switch';
       options?: { id: string; label: string }[];
-      required?: boolean;
       pattern?: string;
       min?: number;
       max?: number;
       synonyms?: string[];
     };
 
-    Rules:
-    - IDs should be unique and lowercase with underscores
-    - Labels should be user-friendly
-    - Add realistic options for select/radio fields
-    - Add sensible min/max for numbers (like phone, age, quantity)
-    - Respond with ONLY valid JSON, no explanation
-  `;
-  try {
-    const generatedText = await getResponseFromOpenAI(promptTemplate)
-    console.log(generatedText)
-    // The model will output a clean JSON array
-    const jsonString = generatedText.replace(/```json/g, '').replace(/```/g, '').trim();
+    Validation rules to follow:
+    - None of the fields should be "required".
+    - If a field is an "email", do NOT add any validation pattern.
+    - If a field is a "phone", enforce exactly 10 digits with a regex pattern: ^\\d{10}$.
+    - If a field is "dob" (date of birth), it must be of type "date", never "string".
+    - If a field has "start date" in its label or id, it must be of type "date", never "string".
+    - For other fields, add realistic and meaningful patterns, min, or max where it makes sense (e.g., age 0–120, quantity >= 0).
+    - IDs must be unique, lowercase_with_underscores.
+    - Labels must be user-friendly.
+    - Add sensible options for select/radio fields.
+    - Respond with ONLY valid JSON (array of fields), no explanation, no markdown fences.
 
-    console.log(jsonString)
+  `;
+
+  try {
+    const generatedText = await getResponseFromOpenAI(promptTemplate);
+    console.log(generatedText);
+    // The model will output a clean JSON array
+    const jsonString = generatedText
+      .replace(/```json/g, '')
+      .replace(/```/g, '')
+      .trim();
+
+    console.log(jsonString);
     return JSON.parse(jsonString) as Field[];
   } catch (err) {
-    console.error("Failed to parse AI response:", err);
+    console.error('Failed to parse AI response:', err);
     return [];
   }
 }
 
-
 const callGeminiApi = async (fieldsArray: Field[], paragraphString: String) => {
-
   const promptTemplate = `
 You are a data parsing and mapping bot. Your task is to extract information from a given paragraph and map it to a provided array of fields.
 
@@ -152,24 +160,29 @@ ${paragraphString}
 Output a single JSON array of \`FieldUpdate\` objects. Do not include any other text or explanation.
 `;
   try {
-    const generatedText = await getResponseFromOpenAI(promptTemplate)
+    const generatedText = await getResponseFromOpenAI(promptTemplate);
 
     // The model will output a clean JSON array
-    const jsonString = generatedText.replace(/```json/g, '').replace(/```/g, '').trim();
+    const jsonString = generatedText
+      .replace(/```json/g, '')
+      .replace(/```/g, '')
+      .trim();
 
     return JSON.parse(jsonString);
-
   } catch (error) {
     console.error('Error calling Gemini API:', error);
     return null;
   }
 };
 
-export const remoteParser = async (schema: Array<Field>, userInput: String): Promise<FieldUpdate[]> => {
+export const remoteParser = async (
+  schema: Array<Field>,
+  userInput: String,
+): Promise<FieldUpdate[]> => {
   const result = await callGeminiApi(schema, userInput);
   if (result) {
-    console.log("Mapped Data:", result);
-    return result
+    console.log('Mapped Data:', result);
+    return result;
     /*
       Example Expected Output:
       [
