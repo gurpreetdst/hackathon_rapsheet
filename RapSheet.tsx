@@ -1,5 +1,5 @@
 // DynamicFormScreen.tsx
-import { JSX, useCallback, useEffect, useMemo, useState } from 'react';
+import { JSX, useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -41,40 +41,43 @@ export default function DynamicFormScreen({
   const [preview, setPreview] = useState<FieldUpdate[]>([]);
   const [partialTranscript, setPartialTranscript] = useState(''); // New state for partial results
   const [errors, setErrors] = useState<Record<string, string | null>>({});
+  const [appliedTranscript, setAppliedTranscript] = useState(''); // applied text
+
+  // Use a ref to store a stable reference to the schema and remoteParser function
+  const schemaRef = useRef(schema);
+  const remoteParserRef = useRef(remoteParser);
 
   useEffect(() => {
-    // Only update the final transcript on the 'onSpeechResults' event
-    Voice.onSpeechResults = (e: any) => {
-      const t = (e.value ?? []).join(' ').trim();
-      setTranscript(t); // Set final transcript
-      setPartialTranscript(''); // Clear partial transcript
+    schemaRef.current = schema;
+  }, [schema]);
+
+  useEffect(() => {
+    const handleSpeechResults = (e: any) => {
+      setTranscript((e.value ?? []).join(' ').trim());
+      setPartialTranscript('');
     };
 
-    // Use onSpeechPartialResults for real-time preview only
-    Voice.onSpeechPartialResults = (e: any) => {
+    // Partial results just update partialTranscript
+    const handleSpeechPartialResults = (e: any) => {
       setPartialTranscript((e.value ?? []).join(' '));
     };
 
-    Voice.onSpeechError = (err: any) => {
+    const handleSpeechError = (err: any) => {
       console.warn('Voice error', err);
       setListening(false);
       setPartialTranscript('');
       setTranscript(''); // Clear transcript on error
     };
 
+    Voice.onSpeechResults = handleSpeechResults;
+    Voice.onSpeechPartialResults = handleSpeechPartialResults;
+    Voice.onSpeechError = handleSpeechError;
+
     return () => {
       Voice.destroy().catch(() => { });
       Voice.removeAllListeners();
     };
   }, []);
-
-  const handleTranscriptFinal = useCallback((text: string) => {
-    if (!text) return;
-    remoteParser(schema, text).then(updates => {
-      console.log('Transcript parsed, updates:', updates);
-      setPreview(updates);
-    });
-  }, [schema]);
 
   const startListening = useCallback(async () => {
     try {
@@ -92,22 +95,28 @@ export default function DynamicFormScreen({
   const stopListening = useCallback(async () => {
     try {
       await Voice.stop();
-    } catch (e) {
-      console.warn('stopListening', e);
-    } finally {
-      setListening(false);
-      // Pass the final transcript to the parser
-      handleTranscriptFinal(transcript);
-    }
-  }, [transcript, handleTranscriptFinal]);
+    } catch (e) { console.warn(e); }
+    setListening(false);
+
+    const finalTranscript = transcript || partialTranscript;
+    if (!finalTranscript) return;
+
+    remoteParserRef.current(schemaRef.current, finalTranscript).then(updates => {
+      setPreview(updates);
+      setAppliedTranscript(finalTranscript); // store applied version separately
+    });
+
+    setPartialTranscript('');
+    setTranscript('');
+  }, [transcript, partialTranscript]);
+
 
   const applyPreview = useCallback(() => {
     if (!preview || preview.length === 0) {
-      setTranscript('');
       return;
     }
 
-    // 1. Apply all preview values as-is
+    // 1. Apply all preview values to state
     setState((prev) => {
       const next = { ...prev };
       for (const u of preview) {
@@ -119,7 +128,7 @@ export default function DynamicFormScreen({
       return next;
     });
 
-    // 2. Validate after applying → update errors
+    // 2. Validate applied values → update errors
     const newErrors: Record<string, string | null> = {};
     for (const u of preview) {
       const field = schema.find((f) => f.id === u.fieldId);
@@ -129,26 +138,16 @@ export default function DynamicFormScreen({
     }
     setErrors((prev) => ({ ...(prev ?? {}), ...newErrors }));
 
-    // 3. Clear preview and reset transcript (fresh speech next time)
+    // 3. Clear preview and store applied transcript
     setPreview([]);
-    setTranscript('');
-  }, [preview, schema]);
-
-
-
-  // const computeDiffLines = useMemo(() => {
-  //   return preview.map((u) => {
-  //     const before = state[u.fieldId];
-  //     return { fieldId: u.fieldId, label: schema.find((s) => s.id === u.fieldId)?.label ?? u.fieldId, before, after: u.value, confidence: u.confidence };
-  //   });
-  // }, [preview, state, schema]);
+    setAppliedTranscript(transcript || appliedTranscript); // preserve applied text
+    setTranscript(''); // clear live speech transcript for next session
+  }, [preview, schema, transcript, appliedTranscript]);
 
   const computeDiffLines = useMemo(() => {
     return preview.map((u) => {
       const field = schema.find((s) => s.id === u.fieldId);
       const before = state[u.fieldId];
-
-      // Do not show error at all in preview
       const isInvalid = field ? !!validateField(field, u.value) : false;
 
       return {
@@ -160,8 +159,6 @@ export default function DynamicFormScreen({
       };
     });
   }, [preview, state, schema]);
-
-
 
   const renderField = useCallback((item: ListRenderItemInfo<Field>) => {
     const field = item.item;
@@ -266,8 +263,6 @@ export default function DynamicFormScreen({
     );
   }, [state, errors, schema]);
 
-
-
   return (
     <View style={{ flex: 1 }}>
       <Text style={{ fontWeight: '700', fontSize: 18, margin: 12 }}>Dynamic Form</Text>
@@ -287,7 +282,9 @@ export default function DynamicFormScreen({
             >
               <Text style={{ color: '#fff' }}>{listening ? 'Stop Listening' : '🎤 Autofill with Voice'}</Text>
             </TouchableOpacity>
-            <Text style={{ marginTop: 6, color: '#444' }}>Transcript: {transcript || partialTranscript || '—'}</Text>
+            <Text>
+              Transcript: {listening ? (partialTranscript || '—') : (appliedTranscript || '—')}
+            </Text>
           </View>
 
           <View style={{ marginVertical: 12 }}>

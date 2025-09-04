@@ -50,33 +50,33 @@ export function validateField(field: Field, value: any): string | null {
 
     case 'date': {
       // accept YYYY-MM-DD; also reject impossible dates
-      const s = String(value).trim();
-      const re = /^\d{4}-\d{2}-\d{2}$/;
-      if (!re.test(s)) return `Use YYYY-MM-DD`;
-      const d = new Date(s + 'T00:00:00');
-      if (isNaN(d.getTime())) return `Invalid date`;
-      // extra guard: month/day must match (avoid 2025-02-31)
-      const [y, m, day] = s.split('-').map(Number);
-      if (
-        d.getUTCFullYear() !== y ||
-        d.getUTCMonth() + 1 !== m ||
-        d.getUTCDate() !== day
-      )
-        return `Invalid date`;
+      //   const s = String(value).trim();
+      //   const re = /^\d{4}-\d{2}-\d{2}$/;
+      //   if (!re.test(s)) return `Use YYYY-MM-DD`;
+      //   const d = new Date(s + 'T00:00:00');
+      //   if (isNaN(d.getTime())) return `Invalid date`;
+      //   // extra guard: month/day must match (avoid 2025-02-31)
+      //   const [y, m, day] = s.split('-').map(Number);
+      //   if (
+      //     d.getUTCFullYear() !== y ||
+      //     d.getUTCMonth() + 1 !== m ||
+      //     d.getUTCDate() !== day
+      //   )
+      //     return `Invalid date`;
       break;
     }
 
     case 'time': {
       // HH:mm (24h)
-      const re = /^([01]\d|2[0-3]):[0-5]\d$/;
-      if (!re.test(String(value))) return `Use HH:mm (24h)`;
+      //   const re = /^([01]\d|2[0-3]):[0-5]\d$/;
+      //   if (!re.test(String(value))) return `Use HH:mm (24h)`;
       break;
     }
 
     case 'datetime': {
       // basic ISO-like: YYYY-MM-DD HH:mm
-      const re = /^\d{4}-\d{2}-\d{2}[ T]([01]\d|2[0-3]):[0-5]\d$/;
-      if (!re.test(String(value))) return `Use YYYY-MM-DD HH:mm`;
+      //   const re = /^\d{4}-\d{2}-\d{2}[ T]([01]\d|2[0-3]):[0-5]\d$/;
+      //   if (!re.test(String(value))) return `Use YYYY-MM-DD HH:mm`;
       break;
     }
 

@@ -76,12 +76,12 @@ export async function generateFormFromAI(formType: string): Promise<Field[]> {
     - IDs must be unique, lowercase_with_underscores.
     - Labels must be user-friendly.
     - Add sensible options for select/radio fields.
-    - Respond with ONLY valid JSON (array of fields), no explanation, no markdown fences.
+    - Respond with ONLY valid JSON (array of fields), no explanation, no markdown fences, no comments
 
   `;
 
   try {
-    const generatedText = await getResponseFromOpenAI(promptTemplate);
+    const generatedText = await getResponseFromGemini(promptTemplate);
     console.log(generatedText);
     // The model will output a clean JSON array
     const jsonString = generatedText
@@ -97,7 +97,10 @@ export async function generateFormFromAI(formType: string): Promise<Field[]> {
   }
 }
 
-const callGeminiApi = async (fieldsArray: Field[], paragraphString: String) => {
+const getFormattedData = async (
+  fieldsArray: Field[],
+  paragraphString: String,
+) => {
   const promptTemplate = `
 You are a data parsing and mapping bot. Your task is to extract information from a given paragraph and map it to a provided array of fields.
 
@@ -160,7 +163,7 @@ ${paragraphString}
 Output a single JSON array of \`FieldUpdate\` objects. Do not include any other text or explanation.
 `;
   try {
-    const generatedText = await getResponseFromOpenAI(promptTemplate);
+    const generatedText = await getResponseFromGemini(promptTemplate);
 
     // The model will output a clean JSON array
     const jsonString = generatedText
@@ -179,7 +182,7 @@ export const remoteParser = async (
   schema: Array<Field>,
   userInput: String,
 ): Promise<FieldUpdate[]> => {
-  const result = await callGeminiApi(schema, userInput);
+  const result = await getFormattedData(schema, userInput);
   if (result) {
     console.log('Mapped Data:', result);
     return result;
