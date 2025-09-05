@@ -326,7 +326,9 @@ export default function DynamicFormScreen({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Voice-Enabled Site Inspection Form</Text>
+      <Text style={styles.title}>Say What You Say</Text>
+      <Text style={styles.title2}>Site Inspection Form</Text>
+
 
       <View style={styles.formContainer}>
         <FlatList contentContainerStyle={styles.listContent} data={schema} keyExtractor={(field) => field.id} renderItem={renderField} />
@@ -335,7 +337,7 @@ export default function DynamicFormScreen({
       {/* Bottom container shows transcript only (cleared immediately on Stop) */}
       <View style={styles.bottomContainer}>
         <ScrollView contentContainerStyle={styles.transcriptScrollContent} showsVerticalScrollIndicator={true}>
-          <Text style={styles.transcriptText}>Transcript: {listening ? (partialTranscript || '—') : (appliedTranscript || '—')}</Text>
+          <Text style={styles.transcriptText}>Transcript: {listening ? (partialTranscript || '-') : (appliedTranscript || '-')}</Text>
 
           {loading && (
             <View style={{ marginTop: 8 }}>
@@ -363,7 +365,8 @@ export default function DynamicFormScreen({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#E8F1F2' },
-  title: { fontWeight: '800', fontSize: 20, margin: 16, color: '#0D47A1', textAlign: 'center' },
+  title: { fontWeight: '800', fontSize: 15, margin: 10, color: '#0D47A1', textAlign: 'center' },
+  title2: { fontWeight: '700', fontSize: 16, margin: 0, color: '#0D47A1', textAlign: 'center' },
   formContainer: { flex: 1 },
   listContent: { padding: 16 },
   fieldContainer: {
