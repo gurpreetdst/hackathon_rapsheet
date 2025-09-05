@@ -1,12 +1,12 @@
 // FabButton.tsx
 import React, { useEffect, useRef } from 'react';
-import { TouchableOpacity, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, Animated, Easing, ViewStyle } from 'react-native';
 
 type FabButtonProps = {
   listening: boolean;
   onStart: () => void;
   onStop: () => void;
-  style?: any; // allow positioning from parent
+  style?: ViewStyle;
 };
 
 const FabButton: React.FC<FabButtonProps> = ({ listening, onStart, onStop, style }) => {
