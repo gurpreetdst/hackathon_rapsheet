@@ -50,6 +50,7 @@ export default function DynamicFormScreen({
 
   const schemaRef = useRef(schema);
   const remoteParserRef = useRef(remoteParser);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Ref used to ignore any speech result callbacks after user pressed Stop.
   const ignoreResultsRef = useRef(false);
@@ -57,6 +58,8 @@ export default function DynamicFormScreen({
   useEffect(() => {
     schemaRef.current = schema;
   }, [schema]);
+
+
 
   useEffect(() => {
     // handlers use ignoreResultsRef.current to decide whether to apply results
@@ -91,6 +94,12 @@ export default function DynamicFormScreen({
 
   const startListening = useCallback(async () => {
     try {
+      // Clear any previous timeout if it exists
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+
       // allow results again
       ignoreResultsRef.current = false;
       setTranscript('');
@@ -178,6 +187,39 @@ export default function DynamicFormScreen({
         ignoreResultsRef.current = false;
       });
   }, [transcript, partialTranscript]);
+
+  // Effect to handle the auto-stop timer when there's a pause in speech
+  useEffect(() => {
+    // Only run this logic if we're currently listening
+    if (!listening) {
+      // If not listening, make sure no timer is active
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      return;
+    }
+
+    // Clear any existing timer to prevent it from triggering
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Set a new timer. If it fires, it means there was a 5-second pause.
+    timeoutRef.current = setTimeout(() => {
+      console.log('5-second pause detected. Automatically stopping.');
+      // Call the stop function. The useCallback hook ensures this is stable.
+      stopListening();
+    }, 4000);
+
+    // Cleanup function for the effect
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [partialTranscript, listening, stopListening]);
 
   const renderField = useCallback(
     (item: ListRenderItemInfo<Field>) => {
