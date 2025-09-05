@@ -50,7 +50,7 @@ export default function DynamicFormScreen({
 
   const schemaRef = useRef(schema);
   const remoteParserRef = useRef(remoteParser);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<number | null>(null);
 
   // Ref used to ignore any speech result callbacks after user pressed Stop.
   const ignoreResultsRef = useRef(false);
@@ -58,8 +58,6 @@ export default function DynamicFormScreen({
   useEffect(() => {
     schemaRef.current = schema;
   }, [schema]);
-
-
 
   useEffect(() => {
     // handlers use ignoreResultsRef.current to decide whether to apply results
@@ -355,7 +353,7 @@ export default function DynamicFormScreen({
           style={{
             position: 'absolute',
             alignSelf: 'center',
-            bottom: 10,
+            bottom: 25,
           }}
         />
       </View>

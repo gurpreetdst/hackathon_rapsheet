@@ -1,6 +1,7 @@
 // FabButton.tsx
 import React, { useEffect, useRef } from 'react';
 import { TouchableOpacity, Text, StyleSheet, Animated, Easing, ViewStyle } from 'react-native';
+import { Mic, Square } from "lucide-react-native"; 
 
 type FabButtonProps = {
   listening: boolean;
@@ -17,7 +18,7 @@ const FabButton: React.FC<FabButtonProps> = ({ listening, onStart, onStop, style
       const pulse = Animated.loop(
         Animated.sequence([
           Animated.timing(scaleAnim, {
-            toValue: 1.2,
+            toValue: 0.9,
             duration: 500,
             useNativeDriver: true,
             easing: Easing.inOut(Easing.ease),
@@ -43,7 +44,7 @@ const FabButton: React.FC<FabButtonProps> = ({ listening, onStart, onStop, style
         style={[styles.fab, listening ? styles.stop : styles.start]}
         onPress={listening ? onStop : onStart}
       >
-        <Text style={styles.fabText}>{listening ? 'Stop' : 'Start'}</Text>
+        {listening ? <Square color="#fff" size={28} /> : <Mic color="#fff" size={28} />}
       </TouchableOpacity>
     </Animated.View>
   );
@@ -51,8 +52,8 @@ const FabButton: React.FC<FabButtonProps> = ({ listening, onStart, onStop, style
 
 const styles = StyleSheet.create({
   fab: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 15,
     borderRadius: 30,
     elevation: 5,
     shadowColor: '#000',
@@ -64,7 +65,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#007AFF',
   },
   stop: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#E1372E',
   },
   fabText: {
     color: 'white',
